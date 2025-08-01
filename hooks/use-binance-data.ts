@@ -1,138 +1,147 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 
 interface BinanceTickerData {
   symbol: string
   price: string
   priceChangePercent: string
-  highPrice: string
-  lowPrice: string
   volume: string
-  openPrice: string
-}
-
-interface BinanceKlineData {
-  openTime: number
-  open: string
   high: string
   low: string
+  open: string
   close: string
-  volume: string
-  closeTime: number
+}
+
+interface CandlestickData {
+  timestamp: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
 }
 
 export function useBinanceData(symbol: string) {
   const [data, setData] = useState<BinanceTickerData | null>(null)
-  const [historicalData, setHistoricalData] = useState<BinanceKlineData[]>([])
+  const [historicalData, setHistoricalData] = useState<CandlestickData[]>([])
   const [isConnected, setIsConnected] = useState(false)
-  const [connectionStatus, setConnectionStatus] = useState("Disconnected")
+  const [connectionStatus, setConnectionStatus] = useState("Connecting...")
   const [loading, setLoading] = useState(true)
   const wsRef = useRef<WebSocket | null>(null)
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Fetch historical data
-  const fetchHistoricalData = useCallback(async (symbol: string) => {
-    try {
-      setLoading(true)
-      const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=100`)
+  useEffect(() => {
+    let mounted = true
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch historical data")
-      }
-
-      const klines = await response.json()
-      const formattedData: BinanceKlineData[] = klines.map((kline: any[]) => ({
-        openTime: kline[0],
-        open: kline[1],
-        high: kline[2],
-        low: kline[3],
-        close: kline[4],
-        volume: kline[5],
-        closeTime: kline[6],
-      }))
-
-      setHistoricalData(formattedData)
-    } catch (error) {
-      console.error("Error fetching historical data:", error)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  // WebSocket connection for real-time data
-  const connectWebSocket = useCallback((symbol: string) => {
-    if (wsRef.current) {
-      wsRef.current.close()
-    }
-
-    setConnectionStatus("Connecting...")
-
-    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@ticker`)
-    wsRef.current = ws
-
-    ws.onopen = () => {
-      setIsConnected(true)
-      setConnectionStatus("Connected")
-      console.log("WebSocket connected")
-    }
-
-    ws.onmessage = (event) => {
+    const connectWebSocket = () => {
       try {
-        const tickerData = JSON.parse(event.data)
-        setData({
-          symbol: tickerData.s,
-          price: tickerData.c,
-          priceChangePercent: tickerData.P,
-          highPrice: tickerData.h,
-          lowPrice: tickerData.l,
-          volume: tickerData.v,
-          openPrice: tickerData.o,
-        })
-      } catch (error) {
-        console.error("Error parsing WebSocket data:", error)
-      }
-    }
+        // Connect to Binance WebSocket for real-time ticker data
+        const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@ticker`)
+        wsRef.current = ws
 
-    ws.onerror = (error) => {
-      console.error("WebSocket error:", error)
-      setConnectionStatus("Error")
-      setIsConnected(false)
-    }
-
-    ws.onclose = () => {
-      setIsConnected(false)
-      setConnectionStatus("Disconnected")
-      console.log("WebSocket disconnected")
-
-      // Attempt to reconnect after 5 seconds
-      setTimeout(() => {
-        if (wsRef.current?.readyState === WebSocket.CLOSED) {
-          connectWebSocket(symbol)
+        ws.onopen = () => {
+          if (mounted) {
+            setIsConnected(true)
+            setConnectionStatus("Connected")
+            setLoading(false)
+          }
         }
-      }, 5000)
-    }
-  }, [])
 
-  // Initialize connection and fetch data when symbol changes
-  useEffect(() => {
-    fetchHistoricalData(symbol)
-    connectWebSocket(symbol)
+        ws.onmessage = (event) => {
+          if (mounted) {
+            try {
+              const tickerData = JSON.parse(event.data)
+              setData({
+                symbol: tickerData.s,
+                price: tickerData.c,
+                priceChangePercent: tickerData.P,
+                volume: tickerData.v,
+                high: tickerData.h,
+                low: tickerData.l,
+                open: tickerData.o,
+                close: tickerData.c,
+              })
+            } catch (error) {
+              console.error("Error parsing WebSocket data:", error)
+            }
+          }
+        }
+
+        ws.onclose = () => {
+          if (mounted) {
+            setIsConnected(false)
+            setConnectionStatus("Disconnected")
+
+            // Attempt to reconnect after 3 seconds
+            reconnectTimeoutRef.current = setTimeout(() => {
+              if (mounted) {
+                setConnectionStatus("Reconnecting...")
+                connectWebSocket()
+              }
+            }, 3000)
+          }
+        }
+
+        ws.onerror = (error) => {
+          if (mounted) {
+            console.error("WebSocket error:", error)
+            setConnectionStatus("Error")
+            setIsConnected(false)
+          }
+        }
+      } catch (error) {
+        if (mounted) {
+          console.error("Failed to connect to WebSocket:", error)
+          setConnectionStatus("Failed")
+          setIsConnected(false)
+          setLoading(false)
+        }
+      }
+    }
+
+    // Generate mock historical data
+    const generateHistoricalData = () => {
+      const data: CandlestickData[] = []
+      const basePrice = 45000 + Math.random() * 10000
+
+      for (let i = 0; i < 100; i++) {
+        const timestamp = Date.now() - (100 - i) * 3600000 // 1 hour intervals
+        const open = i === 0 ? basePrice : data[i - 1].close
+        const change = (Math.random() - 0.5) * 1000
+        const close = open + change
+        const high = Math.max(open, close) + Math.random() * 200
+        const low = Math.min(open, close) - Math.random() * 200
+        const volume = Math.random() * 1000000
+
+        data.push({
+          timestamp,
+          open,
+          high,
+          low,
+          close,
+          volume,
+        })
+      }
+
+      if (mounted) {
+        setHistoricalData(data)
+      }
+    }
+
+    connectWebSocket()
+    generateHistoricalData()
 
     return () => {
+      mounted = false
       if (wsRef.current) {
         wsRef.current.close()
       }
-    }
-  }, [symbol, fetchHistoricalData, connectWebSocket])
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close()
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
       }
     }
-  }, [])
+  }, [symbol])
 
   return {
     data,
