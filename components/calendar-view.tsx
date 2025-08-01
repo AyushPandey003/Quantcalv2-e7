@@ -69,10 +69,13 @@ export function CalendarView({
   }, [data])
 
   const getVolatilityColor = (volatility: number) => {
-    if (volatility < 2) return "bg-green-100 border-green-300 text-green-800"
-    if (volatility < 5) return "bg-yellow-100 border-yellow-300 text-yellow-800"
-    if (volatility < 10) return "bg-orange-100 border-orange-300 text-orange-800"
-    return "bg-red-100 border-red-300 text-red-800"
+    if (volatility < 2)
+      return "bg-green-100 border-green-300 text-green-800 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300"
+    if (volatility < 5)
+      return "bg-yellow-100 border-yellow-300 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-700 dark:text-yellow-300"
+    if (volatility < 10)
+      return "bg-orange-100 border-orange-300 text-orange-800 dark:bg-orange-900/20 dark:border-orange-700 dark:text-orange-300"
+    return "bg-red-100 border-red-300 text-red-800 dark:bg-red-900/20 dark:border-red-700 dark:text-red-300"
   }
 
   const getPerformanceIndicator = (performance: number) => {
@@ -108,11 +111,13 @@ export function CalendarView({
       return (
         <div
           className={cn(
-            "w-full h-12 flex items-center justify-center text-sm",
-            isToday && "bg-blue-100 border border-blue-300 rounded",
-            isSelected && "bg-blue-200 border-2 border-blue-500 rounded",
-            isInRange && "bg-blue-50",
+            "w-full h-10 md:h-12 flex items-center justify-center text-xs md:text-sm cursor-pointer rounded transition-colors",
+            isToday && "bg-blue-100 border border-blue-300 dark:bg-blue-900/20 dark:border-blue-700",
+            isSelected && "bg-blue-200 border-2 border-blue-500 dark:bg-blue-800/30 dark:border-blue-400",
+            isInRange && "bg-blue-50 dark:bg-blue-900/10",
+            "hover:bg-gray-100 dark:hover:bg-gray-800",
           )}
+          onClick={() => handleDateClick(date)}
         >
           {date.getDate()}
         </div>
@@ -125,7 +130,7 @@ export function CalendarView({
           <TooltipTrigger asChild>
             <div
               className={cn(
-                "w-full h-12 flex flex-col items-center justify-center text-xs cursor-pointer border rounded transition-all hover:scale-105",
+                "w-full h-10 md:h-12 flex flex-col items-center justify-center text-xs cursor-pointer border rounded transition-all hover:scale-105",
                 getVolatilityColor(dayData.volatility),
                 isToday && "ring-2 ring-blue-500",
                 isSelected && "ring-2 ring-purple-500",
@@ -133,9 +138,14 @@ export function CalendarView({
               )}
               onClick={() => handleDateClick(date)}
             >
-              <div className="font-medium">{date.getDate()}</div>
+              <div className="font-medium text-xs md:text-sm">{date.getDate()}</div>
               <div className="flex items-center space-x-1">
-                <span className={cn("text-xs", dayData.performance > 0 ? "text-green-600" : "text-red-600")}>
+                <span
+                  className={cn(
+                    "text-xs",
+                    dayData.performance > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400",
+                  )}
+                >
                   {getPerformanceIndicator(dayData.performance)}
                 </span>
                 <div
@@ -164,7 +174,7 @@ export function CalendarView({
 
   if (loading) {
     return (
-      <Card className="p-6">
+      <Card className="p-4 md:p-6">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>
@@ -175,7 +185,7 @@ export function CalendarView({
   return (
     <div className="space-y-4">
       {/* Calendar Controls */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-2">
           <Button
             variant="outline"
@@ -184,7 +194,7 @@ export function CalendarView({
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h3 className="text-lg font-semibold">
+          <h3 className="text-base md:text-lg font-semibold">
             {currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
           </h3>
           <Button
@@ -212,17 +222,28 @@ export function CalendarView({
 
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <Badge className="bg-green-100 text-green-800 border-green-300">Low Volatility (&lt;2%)</Badge>
-        <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">Medium Volatility (2-5%)</Badge>
-        <Badge className="bg-orange-100 text-orange-800 border-orange-300">High Volatility (5-10%)</Badge>
-        <Badge className="bg-red-100 text-red-800 border-red-300">Very High Volatility (&gt;10%)</Badge>
+        <Badge className="bg-green-100 text-green-800 border-green-300 dark:bg-green-900/20 dark:text-green-300 dark:border-green-700">
+          Low Volatility (&lt;2%)
+        </Badge>
+        <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/20 dark:text-yellow-300 dark:border-yellow-700">
+          Medium (2-5%)
+        </Badge>
+        <Badge className="bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-700">
+          High (5-10%)
+        </Badge>
+        <Badge className="bg-red-100 text-red-800 border-red-300 dark:bg-red-900/20 dark:text-red-300 dark:border-red-700">
+          Very High (&gt;10%)
+        </Badge>
       </div>
 
       {/* Calendar Grid */}
       <div className="grid grid-cols-7 gap-1">
         {/* Day headers */}
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-          <div key={day} className="h-8 flex items-center justify-center text-sm font-medium text-muted-foreground">
+          <div
+            key={day}
+            className="h-6 md:h-8 flex items-center justify-center text-xs md:text-sm font-medium text-muted-foreground"
+          >
             {day}
           </div>
         ))}
@@ -248,7 +269,7 @@ export function CalendarView({
 
       {/* Selection Info */}
       {selectedRange && (
-        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
           <p className="text-sm font-medium">Selected Range:</p>
           <p className="text-sm text-muted-foreground">
             {selectedRange.start.toLocaleDateString()} - {selectedRange.end.toLocaleDateString()}

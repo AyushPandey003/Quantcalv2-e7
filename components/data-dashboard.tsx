@@ -105,30 +105,30 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
     <div className="space-y-4">
       {/* Current Market Data */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Activity className="h-5 w-5" />
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center space-x-2 text-lg">
+            <Activity className="h-4 w-4 md:h-5 md:w-5" />
             <span>{symbol} Live Data</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {data ? (
             <>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Price</p>
-                  <p className="text-2xl font-bold">${Number.parseFloat(data.price).toLocaleString()}</p>
+                  <p className="text-xl md:text-2xl font-bold">${Number.parseFloat(data.price).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">24h Change</p>
                   <div className="flex items-center space-x-1">
                     {Number.parseFloat(data.priceChangePercent) >= 0 ? (
-                      <TrendingUp className="h-4 w-4 text-green-500" />
+                      <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-500" />
                     ) : (
-                      <TrendingDown className="h-4 w-4 text-red-500" />
+                      <TrendingDown className="h-3 w-3 md:h-4 md:w-4 text-red-500" />
                     )}
                     <p
-                      className={`text-lg font-semibold ${
+                      className={`text-base md:text-lg font-semibold ${
                         Number.parseFloat(data.priceChangePercent) >= 0 ? "text-green-500" : "text-red-500"
                       }`}
                     >
@@ -139,16 +139,16 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm">High</span>
+                <div className="flex justify-between text-sm">
+                  <span>High</span>
                   <span className="font-medium">${Number.parseFloat(data.highPrice).toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm">Low</span>
+                <div className="flex justify-between text-sm">
+                  <span>Low</span>
                   <span className="font-medium">${Number.parseFloat(data.lowPrice).toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm">Volume</span>
+                <div className="flex justify-between text-sm">
+                  <span>Volume</span>
                   <span className="font-medium">${(Number.parseFloat(data.volume) / 1000000).toFixed(1)}M</span>
                 </div>
               </div>
@@ -165,29 +165,30 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
       {/* Technical Indicators */}
       {technicalIndicators && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Target className="h-5 w-5" />
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center space-x-2 text-lg">
+              <Target className="h-4 w-4 md:h-5 md:w-5" />
               <span>Technical Indicators</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm">SMA (20)</span>
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span>SMA (20)</span>
                 <span className="font-medium">${technicalIndicators.sma20.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">RSI</span>
+              <div className="flex justify-between items-center text-sm">
+                <span>RSI</span>
                 <div className="flex items-center space-x-2">
-                  <Progress value={technicalIndicators.rsi} className="w-16" />
+                  <Progress value={technicalIndicators.rsi} className="w-12 md:w-16" />
                   <span className="font-medium">{technicalIndicators.rsi.toFixed(1)}</span>
                 </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Signal</span>
+              <div className="flex justify-between text-sm">
+                <span>Signal</span>
                 <Badge
                   variant={technicalIndicators.currentPrice > technicalIndicators.sma20 ? "default" : "destructive"}
+                  className="text-xs"
                 >
                   {technicalIndicators.currentPrice > technicalIndicators.sma20 ? "Bullish" : "Bearish"}
                 </Badge>
@@ -200,18 +201,18 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
       {/* Selected Date Details */}
       {selectedDate && selectedDateData && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Zap className="h-5 w-5" />
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center space-x-2 text-lg">
+              <Zap className="h-4 w-4 md:h-5 md:w-5" />
               <span>Date Details</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-center">
-              <p className="text-lg font-semibold">{selectedDate.toLocaleDateString()}</p>
+              <p className="text-base md:text-lg font-semibold">{selectedDate.toLocaleDateString()}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-muted-foreground">Open</p>
                 <p className="font-medium">${Number.parseFloat(selectedDateData.open).toLocaleString()}</p>
@@ -231,8 +232,8 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
             </div>
 
             <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm">Daily Return</span>
+              <div className="flex justify-between text-sm">
+                <span>Daily Return</span>
                 <span
                   className={`font-medium ${
                     ((Number.parseFloat(selectedDateData.close) - Number.parseFloat(selectedDateData.open)) /
@@ -251,8 +252,8 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
                   %
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Volatility</span>
+              <div className="flex justify-between text-sm">
+                <span>Volatility</span>
                 <span className="font-medium">
                   {(
                     ((Number.parseFloat(selectedDateData.high) - Number.parseFloat(selectedDateData.low)) /
@@ -262,8 +263,8 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
                   %
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Volume</span>
+              <div className="flex justify-between text-sm">
+                <span>Volume</span>
                 <span className="font-medium">
                   ${(Number.parseFloat(selectedDateData.volume) / 1000000).toFixed(1)}M
                 </span>
@@ -276,9 +277,9 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
       {/* Range Analysis */}
       {selectedRange && rangeData && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Volume2 className="h-5 w-5" />
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center space-x-2 text-lg">
+              <Volume2 className="h-4 w-4 md:h-5 md:w-5" />
               <span>Range Analysis</span>
             </CardTitle>
           </CardHeader>
@@ -287,22 +288,22 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
               <p className="text-sm text-muted-foreground">
                 {selectedRange.start.toLocaleDateString()} - {selectedRange.end.toLocaleDateString()}
               </p>
-              <p className="text-lg font-semibold">{rangeData.days} Days</p>
+              <p className="text-base md:text-lg font-semibold">{rangeData.days} Days</p>
             </div>
 
             <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm">Total Return</span>
+              <div className="flex justify-between text-sm">
+                <span>Total Return</span>
                 <span className={`font-medium ${rangeData.totalReturn >= 0 ? "text-green-500" : "text-red-500"}`}>
                   {rangeData.totalReturn.toFixed(2)}%
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Avg Volatility</span>
+              <div className="flex justify-between text-sm">
+                <span>Avg Volatility</span>
                 <span className="font-medium">{rangeData.avgVolatility.toFixed(2)}%</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Total Volume</span>
+              <div className="flex justify-between text-sm">
+                <span>Total Volume</span>
                 <span className="font-medium">${(rangeData.totalVolume / 1000000).toFixed(1)}M</span>
               </div>
             </div>
@@ -312,16 +313,16 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
 
       {/* Price Chart */}
       <Card>
-        <CardHeader>
-          <CardTitle>Price Trend (30 Days)</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Price Trend (30 Days)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-64">
+          <div className="h-48 md:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip />
                 <Line type="monotone" dataKey="price" stroke="#3b82f6" strokeWidth={2} dot={false} />
               </LineChart>
@@ -332,16 +333,16 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
 
       {/* Volume Chart */}
       <Card>
-        <CardHeader>
-          <CardTitle>Volume Analysis</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Volume Analysis</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-48">
+          <div className="h-40 md:h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip />
                 <Bar dataKey="volume" fill="#10b981" />
               </BarChart>

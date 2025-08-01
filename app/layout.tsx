@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: "Financial Calendar - Interactive Volatility & Performance Visualization",
   description:
     "Interactive calendar for visualizing historical volatility, liquidity, and performance data across different time periods for financial instruments.",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
