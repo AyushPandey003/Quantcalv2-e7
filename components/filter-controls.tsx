@@ -1,10 +1,13 @@
 "use client"
 
+import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Download, RefreshCw, Settings } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Calendar, Filter, Search, TrendingUp } from "lucide-react"
 
 interface FilterControlsProps {
   selectedSymbol: string
@@ -14,99 +17,137 @@ interface FilterControlsProps {
 }
 
 const POPULAR_SYMBOLS = [
-  "BTCUSDT",
-  "ETHUSDT",
-  "BNBUSDT",
-  "ADAUSDT",
-  "SOLUSDT",
-  "XRPUSDT",
-  "DOTUSDT",
-  "DOGEUSDT",
-  "AVAXUSDT",
-  "MATICUSDT",
+  { symbol: "BTCUSDT", name: "Bitcoin", category: "Crypto" },
+  { symbol: "ETHUSDT", name: "Ethereum", category: "Crypto" },
+  { symbol: "ADAUSDT", name: "Cardano", category: "Crypto" },
+  { symbol: "SOLUSDT", name: "Solana", category: "Crypto" },
+  { symbol: "DOTUSDT", name: "Polkadot", category: "Crypto" },
+  { symbol: "LINKUSDT", name: "Chainlink", category: "Crypto" },
+  { symbol: "MATICUSDT", name: "Polygon", category: "Crypto" },
+  { symbol: "AVAXUSDT", name: "Avalanche", category: "Crypto" },
+]
+
+const FOREX_SYMBOLS = [
+  { symbol: "EURUSD", name: "EUR/USD", category: "Forex" },
+  { symbol: "GBPUSD", name: "GBP/USD", category: "Forex" },
+  { symbol: "USDJPY", name: "USD/JPY", category: "Forex" },
+  { symbol: "AUDUSD", name: "AUD/USD", category: "Forex" },
 ]
 
 export function FilterControls({ selectedSymbol, onSymbolChange, timeframe, onTimeframeChange }: FilterControlsProps) {
-  const handleExport = () => {
-    // Export functionality would be implemented here
-    console.log("Exporting data...")
-  }
-
-  const handleRefresh = () => {
-    // Refresh functionality would be implemented here
-    window.location.reload()
-  }
-
   return (
-    <Card className="p-3 md:p-4">
-      <div className="flex flex-col space-y-4">
-        {/* Main Controls */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-            <div className="flex items-center space-x-2 w-full sm:w-auto">
-              <label className="text-sm font-medium whitespace-nowrap">Symbol:</label>
-              <Select value={selectedSymbol} onValueChange={onSymbolChange}>
-                <SelectTrigger className="w-full sm:w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {POPULAR_SYMBOLS.map((symbol) => (
-                    <SelectItem key={symbol} value={symbol}>
-                      {symbol}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+    <Card>
+      <CardContent className="p-4 md:p-6">
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center space-x-2">
+            <Filter className="h-5 w-5 text-muted-foreground" />
+            <h3 className="text-lg font-semibold">Filters & Controls</h3>
+          </div>
+
+          {/* Symbol Selection */}
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <Label htmlFor="symbol-search" className="text-sm font-medium">
+                  Search Symbol
+                </Label>
+                <div className="relative mt-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="symbol-search"
+                    placeholder="Search for symbols..."
+                    className="pl-10"
+                    onChange={(e) => {
+                      const value = e.target.value.toUpperCase()
+                      if (value.length >= 3) {
+                        onSymbolChange(value + "USDT")
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1">
+                <Label htmlFor="symbol-select" className="text-sm font-medium">
+                  Quick Select
+                </Label>
+                <Select value={selectedSymbol} onValueChange={onSymbolChange}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select a symbol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <div className="p-2">
+                      <div className="text-xs font-medium text-muted-foreground mb-2">Popular Cryptocurrencies</div>
+                      {POPULAR_SYMBOLS.map((item) => (
+                        <SelectItem key={item.symbol} value={item.symbol}>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium">{item.symbol}</span>
+                            <span className="text-muted-foreground">({item.name})</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </div>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="flex items-center space-x-2 w-full sm:w-auto">
-              <label className="text-sm font-medium whitespace-nowrap">View:</label>
-              <div className="flex space-x-1 w-full sm:w-auto">
-                {(["day", "week", "month"] as const).map((tf) => (
+            {/* Popular Symbols Quick Access */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Popular Symbols</Label>
+              <div className="flex flex-wrap gap-2">
+                {POPULAR_SYMBOLS.slice(0, 6).map((item) => (
                   <Button
-                    key={tf}
-                    variant={timeframe === tf ? "default" : "outline"}
+                    key={item.symbol}
+                    variant={selectedSymbol === item.symbol ? "default" : "outline"}
                     size="sm"
-                    onClick={() => onTimeframeChange(tf)}
-                    className="flex-1 sm:flex-none text-xs"
+                    onClick={() => onSymbolChange(item.symbol)}
+                    className="text-xs"
                   >
-                    {tf.charAt(0).toUpperCase() + tf.slice(1)}
+                    {item.symbol.replace("USDT", "")}
                   </Button>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center space-x-2 w-full sm:w-auto">
-            <Button variant="outline" size="sm" onClick={handleRefresh} className="flex-1 sm:flex-none bg-transparent">
-              <RefreshCw className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleExport} className="flex-1 sm:flex-none bg-transparent">
-              <Download className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Export</span>
-            </Button>
-            <Button variant="outline" size="sm" className="flex-1 sm:flex-none bg-transparent">
-              <Settings className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Settings</span>
-            </Button>
+          {/* Timeframe Selection */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Analysis Timeframe</Label>
+            <Tabs value={timeframe} onValueChange={(value) => onTimeframeChange(value as "day" | "week" | "month")}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="day" className="text-xs md:text-sm">
+                  <Calendar className="h-4 w-4 mr-1" />
+                  Daily
+                </TabsTrigger>
+                <TabsTrigger value="week" className="text-xs md:text-sm">
+                  <Calendar className="h-4 w-4 mr-1" />
+                  Weekly
+                </TabsTrigger>
+                <TabsTrigger value="month" className="text-xs md:text-sm">
+                  <Calendar className="h-4 w-4 mr-1" />
+                  Monthly
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          {/* Current Selection Info */}
+          <div className="flex flex-wrap items-center gap-2 pt-4 border-t">
+            <Badge variant="outline" className="text-xs">
+              <TrendingUp className="h-3 w-3 mr-1" />
+              {selectedSymbol}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {timeframe.charAt(0).toUpperCase() + timeframe.slice(1)} View
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              Live Data
+            </Badge>
           </div>
         </div>
-
-        {/* Status Badges */}
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline" className="text-xs">
-            Real-time Data
-          </Badge>
-          <Badge variant="outline" className="text-xs">
-            Binance API
-          </Badge>
-          <Badge variant="outline" className="text-xs">
-            WebSocket Connected
-          </Badge>
-        </div>
-      </div>
+      </CardContent>
     </Card>
   )
 }

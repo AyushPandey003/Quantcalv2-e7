@@ -7,10 +7,10 @@ import { ThemeProvider } from "@/components/theme-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Financial Calendar - Interactive Volatility & Performance Visualization",
+  title: "Interactive Financial Calendar",
   description:
-    "Interactive calendar for visualizing historical volatility, liquidity, and performance data across different time periods for financial instruments.",
-  generator: "v0.dev",
+    "Visualize historical volatility, liquidity, and performance data across different time periods for financial instruments.",
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({

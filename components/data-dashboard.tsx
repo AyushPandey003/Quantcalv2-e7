@@ -49,12 +49,26 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
         Number.parseFloat(filtered[0].open)) *
       100
 
+    const maxVolatility = Math.max(
+      ...filtered.map(
+        (item) => ((Number.parseFloat(item.high) - Number.parseFloat(item.low)) / Number.parseFloat(item.open)) * 100,
+      ),
+    )
+
+    const minVolatility = Math.min(
+      ...filtered.map(
+        (item) => ((Number.parseFloat(item.high) - Number.parseFloat(item.low)) / Number.parseFloat(item.open)) * 100,
+      ),
+    )
+
     return {
       data: filtered,
       totalVolume,
       avgVolatility,
       totalReturn,
       days: filtered.length,
+      maxVolatility,
+      minVolatility,
     }
   }, [selectedRange, historicalData])
 
@@ -91,13 +105,22 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
 
     const avgGain = gains.reduce((sum, gain) => sum + gain, 0) / gains.length
     const avgLoss = losses.reduce((sum, loss) => sum + loss, 0) / losses.length
-    const rs = avgGain / avgLoss
+    const rs = avgGain / (avgLoss || 1)
     const rsi = 100 - 100 / (1 + rs)
+
+    // Bollinger Bands
+    const variance = prices.reduce((sum, price) => sum + Math.pow(price - sma20, 2), 0) / prices.length
+    const stdDev = Math.sqrt(variance)
+    const upperBand = sma20 + 2 * stdDev
+    const lowerBand = sma20 - 2 * stdDev
 
     return {
       sma20,
       rsi,
       currentPrice: prices[prices.length - 1],
+      upperBand,
+      lowerBand,
+      stdDev,
     }
   }, [historicalData])
 
@@ -183,6 +206,14 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
                   <Progress value={technicalIndicators.rsi} className="w-12 md:w-16" />
                   <span className="font-medium">{technicalIndicators.rsi.toFixed(1)}</span>
                 </div>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Bollinger Upper</span>
+                <span className="font-medium">${technicalIndicators.upperBand.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Bollinger Lower</span>
+                <span className="font-medium">${technicalIndicators.lowerBand.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Signal</span>
@@ -301,6 +332,14 @@ export function DataDashboard({ selectedDate, selectedRange, data, historicalDat
               <div className="flex justify-between text-sm">
                 <span>Avg Volatility</span>
                 <span className="font-medium">{rangeData.avgVolatility.toFixed(2)}%</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Max Volatility</span>
+                <span className="font-medium text-red-500">{rangeData.maxVolatility.toFixed(2)}%</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Min Volatility</span>
+                <span className="font-medium text-green-500">{rangeData.minVolatility.toFixed(2)}%</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Total Volume</span>

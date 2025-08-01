@@ -4,7 +4,7 @@ import { useState } from "react"
 import { CalendarView } from "@/components/calendar-view"
 import { DataDashboard } from "@/components/data-dashboard"
 import { FilterControls } from "@/components/filter-controls"
-import { CandlestickChart } from "@/components/candlestick-chart"
+import { FinancialChart } from "@/components/financial-chart"
 import { useBinanceData } from "@/hooks/use-binance-data"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -169,9 +169,9 @@ export default function CalendarPage() {
               </Tabs>
             </Card>
 
-            {/* Candlestick Chart */}
+            {/* Financial Chart */}
             <Card className="p-4 md:p-6">
-              <CandlestickChart
+              <FinancialChart
                 data={historicalData}
                 symbol={selectedSymbol}
                 selectedDate={selectedDate}

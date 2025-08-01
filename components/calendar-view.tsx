@@ -18,6 +18,18 @@ interface CalendarViewProps {
   loading: boolean
 }
 
+interface DayData {
+  date: Date
+  volatility: number
+  performance: number
+  volume: number
+  high: number
+  low: number
+  open: number
+  close: number
+  raw: any
+}
+
 export function CalendarView({
   timeframe,
   data,
@@ -33,11 +45,11 @@ export function CalendarView({
 
   // Calculate volatility and performance for each date
   const processedData = useMemo(() => {
-    if (!data || data.length === 0) return new Map()
+    if (!data || data.length === 0) return new Map<string, DayData>()
 
-    const dataMap = new Map()
+    const dataMap = new Map<string, DayData>()
 
-    data.forEach((item, index) => {
+    data.forEach((item) => {
       const date = new Date(item.openTime)
       const dateKey = date.toDateString()
 
@@ -84,6 +96,14 @@ export function CalendarView({
     return "→"
   }
 
+  const getLiquiditySize = (volume: number) => {
+    // Normalize volume to a scale of 1-4 for visual representation
+    const maxVolume = Math.max(...Array.from(processedData.values()).map((d) => d.volume))
+    const minVolume = Math.min(...Array.from(processedData.values()).map((d) => d.volume))
+    const normalizedVolume = (volume - minVolume) / (maxVolume - minVolume)
+    return Math.max(1, Math.min(4, Math.ceil(normalizedVolume * 4)))
+  }
+
   const handleDateClick = (date: Date) => {
     if (isRangeMode) {
       if (!rangeStart) {
@@ -106,6 +126,7 @@ export function CalendarView({
     const isToday = date.toDateString() === new Date().toDateString()
     const isSelected = selectedDate?.toDateString() === dateKey
     const isInRange = selectedRange && date >= selectedRange.start && date <= selectedRange.end
+    const isRangeStart = rangeStart?.toDateString() === dateKey
 
     if (!dayData) {
       return (
@@ -115,6 +136,7 @@ export function CalendarView({
             isToday && "bg-blue-100 border border-blue-300 dark:bg-blue-900/20 dark:border-blue-700",
             isSelected && "bg-blue-200 border-2 border-blue-500 dark:bg-blue-800/30 dark:border-blue-400",
             isInRange && "bg-blue-50 dark:bg-blue-900/10",
+            isRangeStart && "bg-purple-100 border-2 border-purple-500 dark:bg-purple-900/20 dark:border-purple-400",
             "hover:bg-gray-100 dark:hover:bg-gray-800",
           )}
           onClick={() => handleDateClick(date)}
@@ -124,17 +146,20 @@ export function CalendarView({
       )
     }
 
+    const liquiditySize = getLiquiditySize(dayData.volume)
+
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <div
               className={cn(
-                "w-full h-10 md:h-12 flex flex-col items-center justify-center text-xs cursor-pointer border rounded transition-all hover:scale-105",
+                "w-full h-10 md:h-12 flex flex-col items-center justify-center text-xs cursor-pointer border rounded transition-all hover:scale-105 relative",
                 getVolatilityColor(dayData.volatility),
                 isToday && "ring-2 ring-blue-500",
                 isSelected && "ring-2 ring-purple-500",
                 isInRange && "ring-1 ring-blue-300",
+                isRangeStart && "ring-2 ring-purple-400",
               )}
               onClick={() => handleDateClick(date)}
             >
@@ -142,29 +167,47 @@ export function CalendarView({
               <div className="flex items-center space-x-1">
                 <span
                   className={cn(
-                    "text-xs",
+                    "text-xs font-bold",
                     dayData.performance > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400",
                   )}
                 >
                   {getPerformanceIndicator(dayData.performance)}
                 </span>
+                {/* Liquidity indicator */}
                 <div
-                  className="w-1 h-1 rounded-full bg-current opacity-60"
-                  style={{
-                    transform: `scale(${Math.min(dayData.volume / 1000000, 3)})`,
-                  }}
+                  className={cn(
+                    "rounded-full bg-current opacity-60",
+                    liquiditySize === 1 && "w-1 h-1",
+                    liquiditySize === 2 && "w-1.5 h-1.5",
+                    liquiditySize === 3 && "w-2 h-2",
+                    liquiditySize === 4 && "w-2.5 h-2.5",
+                  )}
                 />
+              </div>
+              {/* Volatility intensity indicator */}
+              <div className="absolute top-1 right-1">
+                {dayData.volatility > 10 && <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />}
               </div>
             </div>
           </TooltipTrigger>
           <TooltipContent>
             <div className="space-y-1">
               <p className="font-medium">{date.toLocaleDateString()}</p>
-              <p>Volatility: {dayData.volatility.toFixed(2)}%</p>
-              <p>Performance: {dayData.performance.toFixed(2)}%</p>
-              <p>Volume: ${(dayData.volume / 1000000).toFixed(1)}M</p>
-              <p>High: ${dayData.high.toLocaleString()}</p>
-              <p>Low: ${dayData.low.toLocaleString()}</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="text-muted-foreground">OHLC</p>
+                  <p>O: ${dayData.open.toFixed(2)}</p>
+                  <p>H: ${dayData.high.toFixed(2)}</p>
+                  <p>L: ${dayData.low.toFixed(2)}</p>
+                  <p>C: ${dayData.close.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Metrics</p>
+                  <p>Vol: {dayData.volatility.toFixed(2)}%</p>
+                  <p>Perf: {dayData.performance.toFixed(2)}%</p>
+                  <p>Vol: ${(dayData.volume / 1000000).toFixed(1)}M</p>
+                </div>
+              </div>
             </div>
           </TooltipContent>
         </Tooltip>
@@ -217,6 +260,11 @@ export function CalendarView({
           >
             Range Select
           </Button>
+          {rangeStart && (
+            <Badge variant="outline" className="text-xs">
+              Range Start: {rangeStart.toLocaleDateString()}
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -234,6 +282,15 @@ export function CalendarView({
         <Badge className="bg-red-100 text-red-800 border-red-300 dark:bg-red-900/20 dark:text-red-300 dark:border-red-700">
           Very High (&gt;10%)
         </Badge>
+        <div className="flex items-center space-x-1 ml-4">
+          <span className="text-xs text-muted-foreground">Liquidity:</span>
+          <div className="flex items-center space-x-1">
+            <div className="w-1 h-1 bg-current rounded-full opacity-60" />
+            <span className="text-xs">Low</span>
+            <div className="w-2.5 h-2.5 bg-current rounded-full opacity-60" />
+            <span className="text-xs">High</span>
+          </div>
+        </div>
       </div>
 
       {/* Calendar Grid */}
@@ -274,6 +331,29 @@ export function CalendarView({
           <p className="text-sm text-muted-foreground">
             {selectedRange.start.toLocaleDateString()} - {selectedRange.end.toLocaleDateString()}
           </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {Array.from(processedData.values())
+              .filter((d) => d.date >= selectedRange.start && d.date <= selectedRange.end)
+              .slice(0, 3)
+              .map((dayData, index) => (
+                <Badge key={index} variant="outline" className="text-xs">
+                  {dayData.date.toLocaleDateString()}: {dayData.performance.toFixed(1)}%
+                </Badge>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {selectedDate && (
+        <div className="mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+          <p className="text-sm font-medium">Selected Date:</p>
+          <p className="text-sm text-muted-foreground">{selectedDate.toLocaleDateString()}</p>
+          {processedData.get(selectedDate.toDateString()) && (
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+              <div>Performance: {processedData.get(selectedDate.toDateString())!.performance.toFixed(2)}%</div>
+              <div>Volatility: {processedData.get(selectedDate.toDateString())!.volatility.toFixed(2)}%</div>
+            </div>
+          )}
         </div>
       )}
     </div>
