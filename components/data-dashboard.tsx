@@ -4,388 +4,268 @@ import { useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
-import { TrendingUp, TrendingDown, Activity, Volume2, Target, Zap } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { TrendingUp, TrendingDown, Activity, BarChart3, DollarSign, Volume2, Target, Zap } from "lucide-react"
+import { cn } from "@/lib/utils"
 
-interface DataDashboardProps {
-  selectedDate: Date | null
-  selectedRange: { start: Date; end: Date } | null
-  data: any
-  historicalData: any[]
+interface BinanceTickerData {
   symbol: string
+  price: string
+  priceChangePercent: string
+  highPrice: string
+  lowPrice: string
+  volume: string
+  openPrice: string
 }
 
-export function DataDashboard({ selectedDate, selectedRange, data, historicalData, symbol }: DataDashboardProps) {
-  const selectedDateData = useMemo(() => {
-    if (!selectedDate || !historicalData) return null
+interface BinanceKlineData {
+  openTime: number
+  open: string
+  high: string
+  low: string
+  close: string
+  volume: string
+  closeTime: number
+}
 
-    return historicalData.find((item) => {
-      const itemDate = new Date(item.openTime)
-      return itemDate.toDateString() === selectedDate.toDateString()
-    })
-  }, [selectedDate, historicalData])
+interface DataDashboardProps {
+  data: BinanceTickerData | null
+  historicalData: BinanceKlineData[]
+  selectedDate?: Date
+  dateRange?: { from: Date; to: Date }
+}
 
-  const rangeData = useMemo(() => {
-    if (!selectedRange || !historicalData) return null
+export function DataDashboard({ data, historicalData, selectedDate, dateRange }: DataDashboardProps) {
+  // Calculate advanced metrics
+  const metrics = useMemo(() => {
+    if (!historicalData || historicalData.length === 0) return null
 
-    const filtered = historicalData.filter((item) => {
-      const itemDate = new Date(item.openTime)
-      return itemDate >= selectedRange.start && itemDate <= selectedRange.end
-    })
+    const prices = historicalData.map((d) => Number.parseFloat(d.close))
+    const volumes = historicalData.map((d) => Number.parseFloat(d.volume))
 
-    if (filtered.length === 0) return null
+    // Calculate volatility (standard deviation of returns)
+    const returns = prices.slice(1).map((price, i) => (price - prices[i]) / prices[i])
+    const avgReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length
+    const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length
+    const volatility = Math.sqrt(variance) * Math.sqrt(252) * 100 // Annualized volatility
 
-    // Calculate aggregated metrics
-    const totalVolume = filtered.reduce((sum, item) => sum + Number.parseFloat(item.volume), 0)
-    const avgVolatility =
-      filtered.reduce((sum, item) => {
-        const volatility =
-          ((Number.parseFloat(item.high) - Number.parseFloat(item.low)) / Number.parseFloat(item.open)) * 100
-        return sum + volatility
-      }, 0) / filtered.length
-
-    const totalReturn =
-      ((Number.parseFloat(filtered[filtered.length - 1].close) - Number.parseFloat(filtered[0].open)) /
-        Number.parseFloat(filtered[0].open)) *
-      100
-
-    const maxVolatility = Math.max(
-      ...filtered.map(
-        (item) => ((Number.parseFloat(item.high) - Number.parseFloat(item.low)) / Number.parseFloat(item.open)) * 100,
-      ),
-    )
-
-    const minVolatility = Math.min(
-      ...filtered.map(
-        (item) => ((Number.parseFloat(item.high) - Number.parseFloat(item.low)) / Number.parseFloat(item.open)) * 100,
-      ),
-    )
-
-    return {
-      data: filtered,
-      totalVolume,
-      avgVolatility,
-      totalReturn,
-      days: filtered.length,
-      maxVolatility,
-      minVolatility,
-    }
-  }, [selectedRange, historicalData])
-
-  const chartData = useMemo(() => {
-    if (!historicalData) return []
-
-    return historicalData.slice(-30).map((item) => ({
-      date: new Date(item.openTime).toLocaleDateString(),
-      price: Number.parseFloat(item.close),
-      volume: Number.parseFloat(item.volume) / 1000000, // Convert to millions
-      volatility: ((Number.parseFloat(item.high) - Number.parseFloat(item.low)) / Number.parseFloat(item.open)) * 100,
-    }))
-  }, [historicalData])
-
-  const technicalIndicators = useMemo(() => {
-    if (!historicalData || historicalData.length < 20) return null
-
-    const prices = historicalData.slice(-20).map((item) => Number.parseFloat(item.close))
-    const sma20 = prices.reduce((sum, price) => sum + price, 0) / prices.length
-
-    // Simple RSI calculation
-    const gains = []
-    const losses = []
-    for (let i = 1; i < prices.length; i++) {
-      const change = prices[i] - prices[i - 1]
-      if (change > 0) {
-        gains.push(change)
-        losses.push(0)
-      } else {
-        gains.push(0)
-        losses.push(Math.abs(change))
-      }
-    }
-
-    const avgGain = gains.reduce((sum, gain) => sum + gain, 0) / gains.length
-    const avgLoss = losses.reduce((sum, loss) => sum + loss, 0) / losses.length
-    const rs = avgGain / (avgLoss || 1)
+    // Calculate RSI
+    const gains = returns.filter((r) => r > 0)
+    const losses = returns.filter((r) => r < 0).map((r) => Math.abs(r))
+    const avgGain = gains.length > 0 ? gains.reduce((sum, g) => sum + g, 0) / gains.length : 0
+    const avgLoss = losses.length > 0 ? losses.reduce((sum, l) => sum + l, 0) / losses.length : 0
+    const rs = avgLoss > 0 ? avgGain / avgLoss : 0
     const rsi = 100 - 100 / (1 + rs)
 
-    // Bollinger Bands
-    const variance = prices.reduce((sum, price) => sum + Math.pow(price - sma20, 2), 0) / prices.length
-    const stdDev = Math.sqrt(variance)
-    const upperBand = sma20 + 2 * stdDev
-    const lowerBand = sma20 - 2 * stdDev
+    // Calculate moving averages
+    const sma20 = prices.slice(-20).reduce((sum, p) => sum + p, 0) / Math.min(20, prices.length)
+    const sma50 = prices.slice(-50).reduce((sum, p) => sum + p, 0) / Math.min(50, prices.length)
+
+    // Calculate support and resistance levels
+    const highs = historicalData.slice(-20).map((d) => Number.parseFloat(d.high))
+    const lows = historicalData.slice(-20).map((d) => Number.parseFloat(d.low))
+    const resistance = Math.max(...highs)
+    const support = Math.min(...lows)
+
+    // Calculate average volume
+    const avgVolume = volumes.reduce((sum, v) => sum + v, 0) / volumes.length
 
     return {
-      sma20,
+      volatility,
       rsi,
-      currentPrice: prices[prices.length - 1],
-      upperBand,
-      lowerBand,
-      stdDev,
+      sma20,
+      sma50,
+      resistance,
+      support,
+      avgVolume,
+      totalReturn: ((prices[prices.length - 1] - prices[0]) / prices[0]) * 100,
+      maxDrawdown: Math.min(...returns.map((_, i) => returns.slice(0, i + 1).reduce((sum, r) => sum + r, 0))) * 100,
     }
   }, [historicalData])
+
+  if (!data || !metrics) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    )
+  }
+
+  const currentPrice = Number.parseFloat(data.price)
+  const priceChange = Number.parseFloat(data.priceChangePercent)
+  const isPositive = priceChange >= 0
 
   return (
     <div className="space-y-4">
-      {/* Current Market Data */}
+      {/* Current Price Card */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center space-x-2 text-lg">
-            <Activity className="h-4 w-4 md:h-5 md:w-5" />
-            <span>{symbol} Live Data</span>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <DollarSign className="w-5 h-5" />
+            {data.symbol}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {data ? (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Price</p>
-                  <p className="text-xl md:text-2xl font-bold">${Number.parseFloat(data.price).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">24h Change</p>
-                  <div className="flex items-center space-x-1">
-                    {Number.parseFloat(data.priceChangePercent) >= 0 ? (
-                      <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-500" />
-                    ) : (
-                      <TrendingDown className="h-3 w-3 md:h-4 md:w-4 text-red-500" />
-                    )}
-                    <p
-                      className={`text-base md:text-lg font-semibold ${
-                        Number.parseFloat(data.priceChangePercent) >= 0 ? "text-green-500" : "text-red-500"
-                      }`}
-                    >
-                      {Number.parseFloat(data.priceChangePercent).toFixed(2)}%
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>High</span>
-                  <span className="font-medium">${Number.parseFloat(data.highPrice).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Low</span>
-                  <span className="font-medium">${Number.parseFloat(data.lowPrice).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Volume</span>
-                  <span className="font-medium">${(Number.parseFloat(data.volume) / 1000000).toFixed(1)}M</span>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="text-sm text-muted-foreground mt-2">Loading live data...</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Technical Indicators */}
-      {technicalIndicators && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2 text-lg">
-              <Target className="h-4 w-4 md:h-5 md:w-5" />
-              <span>Technical Indicators</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span>SMA (20)</span>
-                <span className="font-medium">${technicalIndicators.sma20.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span>RSI</span>
-                <div className="flex items-center space-x-2">
-                  <Progress value={technicalIndicators.rsi} className="w-12 md:w-16" />
-                  <span className="font-medium">{technicalIndicators.rsi.toFixed(1)}</span>
-                </div>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Bollinger Upper</span>
-                <span className="font-medium">${technicalIndicators.upperBand.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Bollinger Lower</span>
-                <span className="font-medium">${technicalIndicators.lowerBand.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Signal</span>
-                <Badge
-                  variant={technicalIndicators.currentPrice > technicalIndicators.sma20 ? "default" : "destructive"}
-                  className="text-xs"
-                >
-                  {technicalIndicators.currentPrice > technicalIndicators.sma20 ? "Bullish" : "Bearish"}
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Selected Date Details */}
-      {selectedDate && selectedDateData && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2 text-lg">
-              <Zap className="h-4 w-4 md:h-5 md:w-5" />
-              <span>Date Details</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-center">
-              <p className="text-base md:text-lg font-semibold">{selectedDate.toLocaleDateString()}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-muted-foreground">Open</p>
-                <p className="font-medium">${Number.parseFloat(selectedDateData.open).toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Close</p>
-                <p className="font-medium">${Number.parseFloat(selectedDateData.close).toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">High</p>
-                <p className="font-medium">${Number.parseFloat(selectedDateData.high).toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Low</p>
-                <p className="font-medium">${Number.parseFloat(selectedDateData.low).toLocaleString()}</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Daily Return</span>
-                <span
-                  className={`font-medium ${
-                    ((Number.parseFloat(selectedDateData.close) - Number.parseFloat(selectedDateData.open)) /
-                      Number.parseFloat(selectedDateData.open)) *
-                      100 >=
-                    0
-                      ? "text-green-500"
-                      : "text-red-500"
-                  }`}
-                >
-                  {(
-                    ((Number.parseFloat(selectedDateData.close) - Number.parseFloat(selectedDateData.open)) /
-                      Number.parseFloat(selectedDateData.open)) *
-                    100
-                  ).toFixed(2)}
-                  %
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Volatility</span>
-                <span className="font-medium">
-                  {(
-                    ((Number.parseFloat(selectedDateData.high) - Number.parseFloat(selectedDateData.low)) /
-                      Number.parseFloat(selectedDateData.open)) *
-                    100
-                  ).toFixed(2)}
-                  %
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Volume</span>
-                <span className="font-medium">
-                  ${(Number.parseFloat(selectedDateData.volume) / 1000000).toFixed(1)}M
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Range Analysis */}
-      {selectedRange && rangeData && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2 text-lg">
-              <Volume2 className="h-4 w-4 md:h-5 md:w-5" />
-              <span>Range Analysis</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground">
-                {selectedRange.start.toLocaleDateString()} - {selectedRange.end.toLocaleDateString()}
-              </p>
-              <p className="text-base md:text-lg font-semibold">{rangeData.days} Days</p>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Total Return</span>
-                <span className={`font-medium ${rangeData.totalReturn >= 0 ? "text-green-500" : "text-red-500"}`}>
-                  {rangeData.totalReturn.toFixed(2)}%
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Avg Volatility</span>
-                <span className="font-medium">{rangeData.avgVolatility.toFixed(2)}%</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Max Volatility</span>
-                <span className="font-medium text-red-500">{rangeData.maxVolatility.toFixed(2)}%</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Min Volatility</span>
-                <span className="font-medium text-green-500">{rangeData.minVolatility.toFixed(2)}%</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Total Volume</span>
-                <span className="font-medium">${(rangeData.totalVolume / 1000000).toFixed(1)}M</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Price Chart */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Price Trend (30 Days)</CardTitle>
-        </CardHeader>
         <CardContent>
-          <div className="h-48 md:h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="price" stroke="#3b82f6" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="space-y-2">
+            <div className="text-2xl font-bold">${currentPrice.toLocaleString()}</div>
+            <div className="flex items-center gap-2">
+              {isPositive ? (
+                <TrendingUp className="w-4 h-4 text-green-600" />
+              ) : (
+                <TrendingDown className="w-4 h-4 text-red-600" />
+              )}
+              <span className={cn("font-medium", isPositive ? "text-green-600" : "text-red-600")}>
+                {priceChange > 0 ? "+" : ""}
+                {priceChange.toFixed(2)}%
+              </span>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Volume Chart */}
+      {/* Technical Indicators */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Volume Analysis</CardTitle>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Activity className="w-4 h-4" />
+            Technical Indicators
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="h-40 md:h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip />
-                <Bar dataKey="volume" fill="#10b981" />
-              </BarChart>
-            </ResponsiveContainer>
+        <CardContent className="space-y-3">
+          {/* RSI */}
+          <div>
+            <div className="flex justify-between text-sm mb-1">
+              <span>RSI (14)</span>
+              <span className="font-medium">{metrics.rsi.toFixed(1)}</span>
+            </div>
+            <Progress value={metrics.rsi} className="h-2" />
+            <div className="flex justify-between text-xs text-slate-500 mt-1">
+              <span>Oversold (30)</span>
+              <span>Overbought (70)</span>
+            </div>
+          </div>
+
+          {/* Volatility */}
+          <div>
+            <div className="flex justify-between text-sm mb-1">
+              <span>Volatility</span>
+              <Badge
+                variant={metrics.volatility > 50 ? "destructive" : metrics.volatility > 25 ? "secondary" : "default"}
+              >
+                {metrics.volatility.toFixed(1)}%
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Price Levels */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Target className="w-4 h-4" />
+            Key Levels
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Resistance</span>
+            <span className="font-medium text-red-600">${metrics.resistance.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Current</span>
+            <span className="font-medium">${currentPrice.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Support</span>
+            <span className="font-medium text-green-600">${metrics.support.toLocaleString()}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Moving Averages */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            Moving Averages
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">SMA 20</span>
+            <span className={cn("font-medium", currentPrice > metrics.sma20 ? "text-green-600" : "text-red-600")}>
+              ${metrics.sma20.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">SMA 50</span>
+            <span className={cn("font-medium", currentPrice > metrics.sma50 ? "text-green-600" : "text-red-600")}>
+              ${metrics.sma50.toFixed(2)}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Volume Analysis */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Volume2 className="w-4 h-4" />
+            Volume Analysis
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">24h Volume</span>
+            <span className="font-medium">{(Number.parseFloat(data.volume) / 1000000).toFixed(1)}M</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Avg Volume</span>
+            <span className="font-medium">{(metrics.avgVolume / 1000000).toFixed(1)}M</span>
+          </div>
+          <div className="text-xs text-slate-500">
+            Current volume is {((Number.parseFloat(data.volume) / metrics.avgVolume) * 100).toFixed(0)}% of average
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Performance Metrics */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Zap className="w-4 h-4" />
+            Performance
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Total Return</span>
+            <span className={cn("font-medium", metrics.totalReturn >= 0 ? "text-green-600" : "text-red-600")}>
+              {metrics.totalReturn > 0 ? "+" : ""}
+              {metrics.totalReturn.toFixed(2)}%
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Max Drawdown</span>
+            <span className="font-medium text-red-600">{metrics.maxDrawdown.toFixed(2)}%</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Market Status */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="text-center">
+            <Badge
+              variant={metrics.rsi > 70 ? "destructive" : metrics.rsi < 30 ? "default" : "secondary"}
+              className="mb-2"
+            >
+              {metrics.rsi > 70 ? "Overbought" : metrics.rsi < 30 ? "Oversold" : "Neutral"}
+            </Badge>
+            <div className="text-xs text-slate-600">Based on RSI indicator</div>
           </div>
         </CardContent>
       </Card>
