@@ -1,48 +1,102 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, TrendingDown } from "lucide-react"
 
-interface MarketOverviewProps {
-  cryptoData: Record<string, any>
+interface MarketData {
+  symbol: string
+  price: string
+  priceChangePercent: string
+  volume: string
+  high: string
+  low: string
 }
 
-export function MarketOverview({ cryptoData }: MarketOverviewProps) {
-  const cryptos = Object.entries(cryptoData)
+export function MarketOverview() {
+  const [marketData, setMarketData] = useState<MarketData[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "SOLUSDT", "XRPUSDT"]
+
+  useEffect(() => {
+    const fetchMarketData = async () => {
+      try {
+        const promises = symbols.map((symbol) =>
+          fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`).then((res) => res.json()),
+        )
+
+        const results = await Promise.all(promises)
+        setMarketData(results)
+        setLoading(false)
+      } catch (error) {
+        console.error("Error fetching market data:", error)
+        setLoading(false)
+      }
+    }
+
+    fetchMarketData()
+    const interval = setInterval(fetchMarketData, 10000) // Update every 10 seconds
+
+    return () => clearInterval(interval)
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Card key={i} className="animate-pulse">
+            <CardHeader className="pb-2">
+              <div className="h-4 bg-muted rounded w-20"></div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="h-6 bg-muted rounded w-24"></div>
+                <div className="h-4 bg-muted rounded w-16"></div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-      {cryptos.map(([symbol, data]) => {
-        const isPositive = Number.parseFloat(data.change) >= 0
-        const cryptoName = symbol.replace("USDT", "")
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {marketData.map((coin) => {
+        const isPositive = Number.parseFloat(coin.priceChangePercent) >= 0
+        const price = Number.parseFloat(coin.price)
+        const change = Number.parseFloat(coin.priceChangePercent)
+        const volume = Number.parseFloat(coin.volume)
 
         return (
-          <Card key={symbol} className="hover:shadow-lg transition-shadow cursor-pointer">
+          <Card key={coin.symbol} className="hover:shadow-lg transition-shadow">
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{cryptoName}</CardTitle>
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span>{coin.symbol.replace("USDT", "/USDT")}</span>
                 <Badge variant={isPositive ? "default" : "destructive"}>
-                  {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {isPositive ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                  {change.toFixed(2)}%
                 </Badge>
-              </div>
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <div>
-                <p className="text-2xl font-bold">${Number.parseFloat(data.price).toLocaleString()}</p>
-                <p className={`text-sm ${isPositive ? "text-green-500" : "text-red-500"}`}>
-                  {isPositive ? "+" : ""}
-                  {data.change}%
-                </p>
-              </div>
-              <div className="text-xs text-muted-foreground space-y-1">
-                <div className="flex justify-between">
-                  <span>Volume:</span>
-                  <span>${(Number.parseFloat(data.volume) / 1000000).toFixed(1)}M</span>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="text-2xl font-bold">${price.toLocaleString()}</div>
+                <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
+                  <div>
+                    <div>24h High</div>
+                    <div className="font-medium">${Number.parseFloat(coin.high).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div>24h Low</div>
+                    <div className="font-medium">${Number.parseFloat(coin.low).toLocaleString()}</div>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span>Market Cap:</span>
-                  <span>${(Number.parseFloat(data.marketCap) / 1000000000).toFixed(1)}B</span>
+                <div className="text-sm text-muted-foreground">
+                  <div>24h Volume</div>
+                  <div className="font-medium">${(volume / 1000000).toFixed(1)}M</div>
                 </div>
               </div>
             </CardContent>

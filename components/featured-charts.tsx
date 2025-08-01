@@ -1,84 +1,123 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from "recharts"
-import { ChartContainer } from "@/components/ui/chart"
+import { LineChart, Line, ResponsiveContainer } from "recharts"
+
+interface ChartData {
+  time: string
+  price: number
+}
+
+interface FeaturedChart {
+  symbol: string
+  data: ChartData[]
+  currentPrice: number
+  change: number
+}
 
 export function FeaturedCharts() {
-  const mockData = Array.from({ length: 24 }, (_, i) => ({
-    time: `${i}:00`,
-    btc: 45000 + Math.random() * 5000,
-    eth: 3000 + Math.random() * 500,
-    bnb: 300 + Math.random() * 50,
-  }))
+  const [charts, setCharts] = useState<FeaturedChart[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const chartConfig = {
-    btc: { label: "BTC", color: "#f7931a" },
-    eth: { label: "ETH", color: "#627eea" },
-    bnb: { label: "BNB", color: "#f3ba2f" },
+  const symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT"]
+
+  useEffect(() => {
+    const fetchChartData = async () => {
+      try {
+        const chartPromises = symbols.map(async (symbol) => {
+          // Fetch current price
+          const tickerResponse = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`)
+          const tickerData = await tickerResponse.json()
+
+          // Fetch kline data for mini chart
+          const klineResponse = await fetch(
+            `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h&limit=24`,
+          )
+          const klineData = await klineResponse.json()
+
+          const chartData = klineData.map((kline: any[]) => ({
+            time: new Date(kline[0]).toLocaleTimeString(),
+            price: Number.parseFloat(kline[4]), // Close price
+          }))
+
+          return {
+            symbol,
+            data: chartData,
+            currentPrice: Number.parseFloat(tickerData.lastPrice),
+            change: Number.parseFloat(tickerData.priceChangePercent),
+          }
+        })
+
+        const results = await Promise.all(chartPromises)
+        setCharts(results)
+        setLoading(false)
+      } catch (error) {
+        console.error("Error fetching chart data:", error)
+        setLoading(false)
+      }
+    }
+
+    fetchChartData()
+    const interval = setInterval(fetchChartData, 30000) // Update every 30 seconds
+
+    return () => clearInterval(interval)
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="animate-pulse">
+            <CardHeader className="pb-2">
+              <div className="h-4 bg-muted rounded w-20"></div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-20 bg-muted rounded"></div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-            <span>Bitcoin (BTC)</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={mockData}>
-                <XAxis dataKey="time" axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Line type="monotone" dataKey="btc" stroke="var(--color-btc)" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {charts.map((chart) => {
+        const isPositive = chart.change >= 0
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span>Ethereum (ETH)</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={mockData}>
-                <XAxis dataKey="time" axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Line type="monotone" dataKey="eth" stroke="var(--color-eth)" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-            <span>Binance Coin (BNB)</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={mockData}>
-                <XAxis dataKey="time" axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Line type="monotone" dataKey="bnb" stroke="var(--color-bnb)" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+        return (
+          <Card key={chart.symbol} className="hover:shadow-lg transition-shadow">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center justify-between">
+                <span>{chart.symbol.replace("USDT", "/USDT")}</span>
+                <span className={`text-xs ${isPositive ? "text-green-500" : "text-red-500"}`}>
+                  {isPositive ? "+" : ""}
+                  {chart.change.toFixed(2)}%
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="text-lg font-bold">${chart.currentPrice.toLocaleString()}</div>
+                <div className="h-16">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chart.data}>
+                      <Line
+                        type="monotone"
+                        dataKey="price"
+                        stroke={isPositive ? "#10b981" : "#ef4444"}
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })}
     </div>
   )
 }

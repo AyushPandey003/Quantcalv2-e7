@@ -1,9 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
+interface OrderbookWidgetProps {
+  symbol: string
+}
 
 interface OrderbookEntry {
   price: number
@@ -11,168 +13,186 @@ interface OrderbookEntry {
   total: number
 }
 
-interface OrderbookWidgetProps {
-  symbol: string
+interface OrderbookData {
+  bids: OrderbookEntry[]
+  asks: OrderbookEntry[]
+  lastUpdateId: number
 }
 
 export function OrderbookWidget({ symbol }: OrderbookWidgetProps) {
-  const [bids, setBids] = useState<OrderbookEntry[]>([])
-  const [asks, setAsks] = useState<OrderbookEntry[]>([])
+  const [orderbook, setOrderbook] = useState<OrderbookData | null>(null)
+  const [loading, setLoading] = useState(true)
   const [spread, setSpread] = useState<number>(0)
-  const [isConnected, setIsConnected] = useState(false)
 
   useEffect(() => {
-    // Generate mock orderbook data
-    const generateOrderbook = () => {
-      const basePrice = 45000 + Math.random() * 10000
+    let ws: WebSocket | null = null
 
-      const newBids: OrderbookEntry[] = []
-      const newAsks: OrderbookEntry[] = []
+    const connectWebSocket = () => {
+      try {
+        const wsUrl = `wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@depth20@100ms`
+        ws = new WebSocket(wsUrl)
 
-      // Generate bids (below current price)
-      for (let i = 0; i < 15; i++) {
-        const price = basePrice - (i + 1) * (Math.random() * 50 + 10)
-        const quantity = Math.random() * 10 + 0.1
-        const total = i === 0 ? quantity : newBids[i - 1].total + quantity
-        newBids.push({ price, quantity, total })
+        ws.onopen = () => {
+          console.log(`Orderbook WebSocket connected for ${symbol}`)
+          setLoading(false)
+        }
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+
+            if (data.bids && data.asks) {
+              const bids = data.bids.slice(0, 10).map((bid: string[], index: number) => {
+                const price = Number.parseFloat(bid[0])
+                const quantity = Number.parseFloat(bid[1])
+                return {
+                  price,
+                  quantity,
+                  total: quantity * price,
+                }
+              })
+
+              const asks = data.asks.slice(0, 10).map((ask: string[], index: number) => {
+                const price = Number.parseFloat(ask[0])
+                const quantity = Number.parseFloat(ask[1])
+                return {
+                  price,
+                  quantity,
+                  total: quantity * price,
+                }
+              })
+
+              // Calculate spread
+              if (bids.length > 0 && asks.length > 0) {
+                const bestBid = bids[0].price
+                const bestAsk = asks[0].price
+                setSpread(bestAsk - bestBid)
+              }
+
+              setOrderbook({
+                bids,
+                asks,
+                lastUpdateId: data.lastUpdateId,
+              })
+            }
+          } catch (error) {
+            console.error("Error parsing orderbook data:", error)
+          }
+        }
+
+        ws.onerror = (error) => {
+          console.error("Orderbook WebSocket error:", error)
+          setLoading(false)
+        }
+
+        ws.onclose = () => {
+          console.log("Orderbook WebSocket disconnected")
+          // Attempt to reconnect after 3 seconds
+          setTimeout(connectWebSocket, 3000)
+        }
+      } catch (error) {
+        console.error("Error connecting to orderbook WebSocket:", error)
+        setLoading(false)
       }
-
-      // Generate asks (above current price)
-      for (let i = 0; i < 15; i++) {
-        const price = basePrice + (i + 1) * (Math.random() * 50 + 10)
-        const quantity = Math.random() * 10 + 0.1
-        const total = i === 0 ? quantity : newAsks[i - 1].total + quantity
-        newAsks.push({ price, quantity, total })
-      }
-
-      setBids(newBids)
-      setAsks(newAsks.reverse()) // Reverse asks to show lowest first
-      setSpread(newAsks[0]?.price - newBids[0]?.price || 0)
-      setIsConnected(true)
     }
 
-    generateOrderbook()
-    const interval = setInterval(generateOrderbook, 1000) // Update every second
+    connectWebSocket()
 
-    return () => clearInterval(interval)
+    return () => {
+      if (ws) {
+        ws.close()
+      }
+    }
   }, [symbol])
 
-  const maxBidTotal = Math.max(...bids.map((b) => b.total))
-  const maxAskTotal = Math.max(...asks.map((a) => a.total))
+  if (loading) {
+    return (
+      <div className="h-96 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
+  if (!orderbook) {
+    return (
+      <div className="h-96 flex items-center justify-center text-muted-foreground">
+        <p>Unable to load orderbook data</p>
+      </div>
+    )
+  }
+
+  const maxVolume = Math.max(...orderbook.bids.map((bid) => bid.quantity), ...orderbook.asks.map((ask) => ask.quantity))
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Order Book</CardTitle>
-          <Badge variant={isConnected ? "default" : "destructive"}>{isConnected ? "Live" : "Offline"}</Badge>
+    <div className="space-y-4">
+      {/* Spread Info */}
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Spread</span>
+        <Badge variant="outline">
+          ${spread.toFixed(2)} ({((spread / orderbook.asks[0]?.price) * 100).toFixed(3)}%)
+        </Badge>
+      </div>
+
+      <div className="space-y-2">
+        {/* Asks (Sell Orders) */}
+        <div className="space-y-1">
+          <div className="grid grid-cols-3 gap-2 text-xs font-medium text-muted-foreground px-2">
+            <span>Price</span>
+            <span className="text-right">Size</span>
+            <span className="text-right">Total</span>
+          </div>
+
+          {orderbook.asks
+            .slice()
+            .reverse()
+            .map((ask, index) => (
+              <div
+                key={`ask-${index}`}
+                className="relative grid grid-cols-3 gap-2 text-xs py-1 px-2 hover:bg-muted/50 rounded"
+              >
+                <div
+                  className="absolute inset-0 bg-red-500/10 rounded"
+                  style={{
+                    width: `${(ask.quantity / maxVolume) * 100}%`,
+                    right: 0,
+                  }}
+                />
+                <span className="relative text-red-500 font-mono">${ask.price.toLocaleString()}</span>
+                <span className="relative text-right font-mono">{ask.quantity.toFixed(4)}</span>
+                <span className="relative text-right font-mono text-muted-foreground">
+                  ${ask.total.toLocaleString()}
+                </span>
+              </div>
+            ))}
         </div>
-        <CardDescription>{symbol}</CardDescription>
-      </CardHeader>
-      <CardContent className="p-0">
-        <Tabs defaultValue="combined" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mx-4 mb-4">
-            <TabsTrigger value="combined">Combined</TabsTrigger>
-            <TabsTrigger value="bids">Bids</TabsTrigger>
-            <TabsTrigger value="asks">Asks</TabsTrigger>
-          </TabsList>
 
-          <TabsContent value="combined" className="mt-0">
-            <div className="space-y-1">
-              {/* Header */}
-              <div className="grid grid-cols-3 gap-2 px-4 py-2 text-xs font-medium text-muted-foreground border-b">
-                <span>Price</span>
-                <span className="text-right">Size</span>
-                <span className="text-right">Total</span>
-              </div>
+        {/* Current Price */}
+        <div className="py-2 px-2 bg-muted/30 rounded text-center">
+          <div className="text-lg font-bold">${orderbook.asks[0]?.price.toLocaleString() || "N/A"}</div>
+          <div className="text-xs text-muted-foreground">Last Price</div>
+        </div>
 
-              {/* Asks */}
-              <div className="max-h-[200px] overflow-y-auto">
-                {asks.slice(0, 10).map((ask, index) => (
-                  <div key={index} className="relative grid grid-cols-3 gap-2 px-4 py-1 text-xs hover:bg-muted/50">
-                    <div
-                      className="absolute inset-y-0 right-0 bg-red-500/10"
-                      style={{ width: `${(ask.total / maxAskTotal) * 100}%` }}
-                    />
-                    <span className="text-red-500 font-mono relative z-10">{ask.price.toFixed(2)}</span>
-                    <span className="text-right relative z-10">{ask.quantity.toFixed(4)}</span>
-                    <span className="text-right text-muted-foreground relative z-10">{ask.total.toFixed(4)}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Spread */}
-              <div className="px-4 py-2 bg-muted/30 border-y">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Spread</span>
-                  <span className="font-medium">${spread.toFixed(2)}</span>
-                </div>
-              </div>
-
-              {/* Bids */}
-              <div className="max-h-[200px] overflow-y-auto">
-                {bids.slice(0, 10).map((bid, index) => (
-                  <div key={index} className="relative grid grid-cols-3 gap-2 px-4 py-1 text-xs hover:bg-muted/50">
-                    <div
-                      className="absolute inset-y-0 right-0 bg-green-500/10"
-                      style={{ width: `${(bid.total / maxBidTotal) * 100}%` }}
-                    />
-                    <span className="text-green-500 font-mono relative z-10">{bid.price.toFixed(2)}</span>
-                    <span className="text-right relative z-10">{bid.quantity.toFixed(4)}</span>
-                    <span className="text-right text-muted-foreground relative z-10">{bid.total.toFixed(4)}</span>
-                  </div>
-                ))}
-              </div>
+        {/* Bids (Buy Orders) */}
+        <div className="space-y-1">
+          {orderbook.bids.map((bid, index) => (
+            <div
+              key={`bid-${index}`}
+              className="relative grid grid-cols-3 gap-2 text-xs py-1 px-2 hover:bg-muted/50 rounded"
+            >
+              <div
+                className="absolute inset-0 bg-green-500/10 rounded"
+                style={{
+                  width: `${(bid.quantity / maxVolume) * 100}%`,
+                  right: 0,
+                }}
+              />
+              <span className="relative text-green-500 font-mono">${bid.price.toLocaleString()}</span>
+              <span className="relative text-right font-mono">{bid.quantity.toFixed(4)}</span>
+              <span className="relative text-right font-mono text-muted-foreground">${bid.total.toLocaleString()}</span>
             </div>
-          </TabsContent>
-
-          <TabsContent value="bids" className="mt-0">
-            <div className="space-y-1">
-              <div className="grid grid-cols-3 gap-2 px-4 py-2 text-xs font-medium text-muted-foreground border-b">
-                <span>Price</span>
-                <span className="text-right">Size</span>
-                <span className="text-right">Total</span>
-              </div>
-              <div className="max-h-[400px] overflow-y-auto">
-                {bids.map((bid, index) => (
-                  <div key={index} className="relative grid grid-cols-3 gap-2 px-4 py-1 text-xs hover:bg-muted/50">
-                    <div
-                      className="absolute inset-y-0 right-0 bg-green-500/10"
-                      style={{ width: `${(bid.total / maxBidTotal) * 100}%` }}
-                    />
-                    <span className="text-green-500 font-mono relative z-10">{bid.price.toFixed(2)}</span>
-                    <span className="text-right relative z-10">{bid.quantity.toFixed(4)}</span>
-                    <span className="text-right text-muted-foreground relative z-10">{bid.total.toFixed(4)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="asks" className="mt-0">
-            <div className="space-y-1">
-              <div className="grid grid-cols-3 gap-2 px-4 py-2 text-xs font-medium text-muted-foreground border-b">
-                <span>Price</span>
-                <span className="text-right">Size</span>
-                <span className="text-right">Total</span>
-              </div>
-              <div className="max-h-[400px] overflow-y-auto">
-                {asks.map((ask, index) => (
-                  <div key={index} className="relative grid grid-cols-3 gap-2 px-4 py-1 text-xs hover:bg-muted/50">
-                    <div
-                      className="absolute inset-y-0 right-0 bg-red-500/10"
-                      style={{ width: `${(ask.total / maxAskTotal) * 100}%` }}
-                    />
-                    <span className="text-red-500 font-mono relative z-10">{ask.price.toFixed(2)}</span>
-                    <span className="text-right relative z-10">{ask.quantity.toFixed(4)}</span>
-                    <span className="text-right text-muted-foreground relative z-10">{ask.total.toFixed(4)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }

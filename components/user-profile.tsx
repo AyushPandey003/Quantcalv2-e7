@@ -5,76 +5,124 @@ import type React from "react"
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, User, Settings, Bell, Shield, Palette, Eye, Download, Upload, Save } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import {
+  ArrowLeft,
+  User,
+  Settings,
+  Bell,
+  Database,
+  Shield,
+  Palette,
+  Accessibility,
+  Download,
+  Upload,
+  Save,
+  Eye,
+  EyeOff,
+} from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { useToast } from "@/hooks/use-toast"
 
 interface UserProfileProps {
-  onNavigate: (view: "home" | "dashboard" | "profile") => void
+  onNavigate: (view: "home" | "calendar" | "dashboard" | "profile") => void
 }
 
 export function UserProfile({ onNavigate }: UserProfileProps) {
+  const { toast } = useToast()
   const [settings, setSettings] = useState({
     // Display Settings
-    fontSize: [16],
+    theme: "system",
+    fontSize: [14],
     chartHeight: [400],
     colorScheme: "default",
     showGrid: true,
     showVolume: true,
 
     // Accessibility Settings
-    screenReader: false,
-    keyboardNav: true,
     highContrast: false,
     reducedMotion: false,
+    screenReader: false,
+    keyboardNav: true,
     focusIndicators: true,
 
     // Notification Settings
     priceAlerts: true,
-    emailNotifications: false,
-    pushNotifications: true,
-    soundEnabled: true,
-    alertVolume: [70],
+    emailNotifications: true,
+    pushNotifications: false,
+    soundAlerts: true,
+    alertFrequency: "immediate",
 
     // Data Settings
-    autoRefresh: true,
-    refreshInterval: 5,
-    dataCaching: true,
-    dataRetention: 30,
+    dataRetention: "1year",
+    autoSync: true,
+    exportFormat: "json",
+    apiAccess: false,
 
     // Trading Settings
     confirmOrders: true,
     defaultLeverage: [1],
     riskWarnings: true,
+    paperTrading: false,
 
     // Privacy Settings
     shareData: false,
     analytics: true,
     cookies: true,
+    twoFactor: false,
   })
 
-  const updateSetting = (key: string, value: any) => {
+  const [profile, setProfile] = useState({
+    name: "John Doe",
+    email: "john.doe@example.com",
+    bio: "Professional trader with 5+ years experience in cryptocurrency markets.",
+    location: "New York, USA",
+    website: "https://johndoe.trading",
+    twitter: "@johndoe",
+  })
+
+  const [showPassword, setShowPassword] = useState(false)
+
+  const handleSettingChange = (key: string, value: any) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
   }
 
-  const exportSettings = () => {
-    const dataStr = JSON.stringify(settings, null, 2)
-    const dataUri = "data:application/json;charset=utf-8," + encodeURIComponent(dataStr)
-    const exportFileDefaultName = "quantcal-settings.json"
-
-    const linkElement = document.createElement("a")
-    linkElement.setAttribute("href", dataUri)
-    linkElement.setAttribute("download", exportFileDefaultName)
-    linkElement.click()
+  const handleProfileChange = (key: string, value: string) => {
+    setProfile((prev) => ({ ...prev, [key]: value }))
   }
 
-  const importSettings = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSaveSettings = () => {
+    // Save settings logic here
+    toast({
+      title: "Settings Saved",
+      description: "Your preferences have been updated successfully.",
+    })
+  }
+
+  const handleExportSettings = () => {
+    const dataStr = JSON.stringify(settings, null, 2)
+    const dataBlob = new Blob([dataStr], { type: "application/json" })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "quantcal-settings.json"
+    link.click()
+
+    toast({
+      title: "Settings Exported",
+      description: "Your settings have been downloaded as a JSON file.",
+    })
+  }
+
+  const handleImportSettings = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
       const reader = new FileReader()
@@ -82,8 +130,16 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
         try {
           const importedSettings = JSON.parse(e.target?.result as string)
           setSettings(importedSettings)
+          toast({
+            title: "Settings Imported",
+            description: "Your settings have been imported successfully.",
+          })
         } catch (error) {
-          console.error("Error importing settings:", error)
+          toast({
+            title: "Import Failed",
+            description: "Invalid settings file format.",
+            variant: "destructive",
+          })
         }
       }
       reader.readAsText(file)
@@ -93,94 +149,171 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
+      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Button variant="ghost" size="sm" onClick={() => onNavigate("home")}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              Back to Home
             </Button>
             <div className="flex items-center space-x-2">
-              <User className="h-6 w-6" />
-              <span className="text-xl font-bold">User Profile & Settings</span>
+              <User className="h-5 w-5" />
+              <span className="text-xl font-bold">User Profile</span>
             </div>
           </div>
 
           <div className="flex items-center space-x-4">
-            <ThemeToggle />
-            <Button variant="outline" size="sm" onClick={() => onNavigate("dashboard")}>
-              Dashboard
+            <Button variant="outline" onClick={() => onNavigate("calendar")}>
+              Calendar
             </Button>
+            <Button variant="outline" onClick={() => onNavigate("dashboard")}>
+              Trading
+            </Button>
+            <ThemeToggle />
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto p-6 max-w-4xl">
-        {/* Profile Header */}
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-center space-x-4">
-              <div className="h-16 w-16 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
-                <User className="h-8 w-8 text-white" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl">John Trader</CardTitle>
-                <CardDescription>Professional Trader • Member since 2024</CardDescription>
-                <div className="flex items-center space-x-2 mt-2">
-                  <Badge>Pro Plan</Badge>
-                  <Badge variant="outline">Verified</Badge>
-                </div>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
-
-        {/* Settings Tabs */}
-        <Tabs defaultValue="display" className="w-full">
+      <div className="container mx-auto p-6">
+        <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="display" className="flex items-center space-x-2">
-              <Palette className="h-4 w-4" />
-              <span className="hidden sm:inline">Display</span>
-            </TabsTrigger>
-            <TabsTrigger value="accessibility" className="flex items-center space-x-2">
-              <Eye className="h-4 w-4" />
-              <span className="hidden sm:inline">Access</span>
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="flex items-center space-x-2">
-              <Bell className="h-4 w-4" />
-              <span className="hidden sm:inline">Alerts</span>
-            </TabsTrigger>
-            <TabsTrigger value="data" className="flex items-center space-x-2">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Data</span>
-            </TabsTrigger>
-            <TabsTrigger value="trading" className="flex items-center space-x-2">
-              <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">Trading</span>
-            </TabsTrigger>
-            <TabsTrigger value="privacy" className="flex items-center space-x-2">
-              <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">Privacy</span>
-            </TabsTrigger>
+            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="display">Display</TabsTrigger>
+            <TabsTrigger value="accessibility">Accessibility</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            <TabsTrigger value="trading">Trading</TabsTrigger>
+            <TabsTrigger value="privacy">Privacy</TabsTrigger>
           </TabsList>
 
-          {/* Display Settings */}
+          {/* Profile Tab */}
+          <TabsContent value="profile" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <User className="h-5 w-5" />
+                  <span>Profile Information</span>
+                </CardTitle>
+                <CardDescription>Manage your personal information and public profile</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      value={profile.name}
+                      onChange={(e) => handleProfileChange("name", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={profile.email}
+                      onChange={(e) => handleProfileChange("email", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="bio">Bio</Label>
+                  <Textarea
+                    id="bio"
+                    placeholder="Tell us about yourself..."
+                    value={profile.bio}
+                    onChange={(e) => handleProfileChange("bio", e.target.value)}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="location">Location</Label>
+                    <Input
+                      id="location"
+                      value={profile.location}
+                      onChange={(e) => handleProfileChange("location", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="website">Website</Label>
+                    <Input
+                      id="website"
+                      type="url"
+                      value={profile.website}
+                      onChange={(e) => handleProfileChange("website", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="twitter">Twitter Handle</Label>
+                  <Input
+                    id="twitter"
+                    value={profile.twitter}
+                    onChange={(e) => handleProfileChange("twitter", e.target.value)}
+                  />
+                </div>
+
+                <Separator />
+
+                <div>
+                  <Label htmlFor="password">Change Password</Label>
+                  <div className="relative">
+                    <Input id="password" type={showPassword ? "text" : "password"} placeholder="Enter new password" />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <Button onClick={handleSaveSettings}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Profile
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Display Settings Tab */}
           <TabsContent value="display" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Display Preferences</CardTitle>
-                <CardDescription>Customize the appearance of charts and interface</CardDescription>
+                <CardTitle className="flex items-center space-x-2">
+                  <Palette className="h-5 w-5" />
+                  <span>Display Settings</span>
+                </CardTitle>
+                <CardDescription>Customize the appearance and layout of the application</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label>Theme</Label>
+                  <Select value={settings.theme} onValueChange={(value) => handleSettingChange("theme", value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="dark">Dark</SelectItem>
+                      <SelectItem value="system">System</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="space-y-2">
                   <Label>Font Size: {settings.fontSize[0]}px</Label>
                   <Slider
                     value={settings.fontSize}
-                    onValueChange={(value) => updateSetting("fontSize", value)}
-                    max={24}
+                    onValueChange={(value) => handleSettingChange("fontSize", value)}
+                    max={20}
                     min={12}
                     step={1}
-                    className="w-full"
                   />
                 </div>
 
@@ -188,17 +321,19 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                   <Label>Chart Height: {settings.chartHeight[0]}px</Label>
                   <Slider
                     value={settings.chartHeight}
-                    onValueChange={(value) => updateSetting("chartHeight", value)}
+                    onValueChange={(value) => handleSettingChange("chartHeight", value)}
                     max={800}
                     min={200}
                     step={50}
-                    className="w-full"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label>Color Scheme</Label>
-                  <Select value={settings.colorScheme} onValueChange={(value) => updateSetting("colorScheme", value)}>
+                  <Select
+                    value={settings.colorScheme}
+                    onValueChange={(value) => handleSettingChange("colorScheme", value)}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -206,7 +341,7 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                       <SelectItem value="default">Default</SelectItem>
                       <SelectItem value="colorblind">Colorblind Friendly</SelectItem>
                       <SelectItem value="monochrome">Monochrome</SelectItem>
-                      <SelectItem value="high-contrast">High Contrast</SelectItem>
+                      <SelectItem value="vibrant">Vibrant</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -216,7 +351,7 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                   <Switch
                     id="show-grid"
                     checked={settings.showGrid}
-                    onCheckedChange={(checked) => updateSetting("showGrid", checked)}
+                    onCheckedChange={(checked) => handleSettingChange("showGrid", checked)}
                   />
                 </div>
 
@@ -225,45 +360,24 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                   <Switch
                     id="show-volume"
                     checked={settings.showVolume}
-                    onCheckedChange={(checked) => updateSetting("showVolume", checked)}
+                    onCheckedChange={(checked) => handleSettingChange("showVolume", checked)}
                   />
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Accessibility Settings */}
+          {/* Accessibility Tab */}
           <TabsContent value="accessibility" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Accessibility Options</CardTitle>
-                <CardDescription>Settings to improve accessibility and usability</CardDescription>
+                <CardTitle className="flex items-center space-x-2">
+                  <Accessibility className="h-5 w-5" />
+                  <span>Accessibility Settings</span>
+                </CardTitle>
+                <CardDescription>Configure accessibility features for better usability</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="screen-reader">Screen Reader Support</Label>
-                    <p className="text-sm text-muted-foreground">Enhanced ARIA labels and descriptions</p>
-                  </div>
-                  <Switch
-                    id="screen-reader"
-                    checked={settings.screenReader}
-                    onCheckedChange={(checked) => updateSetting("screenReader", checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="keyboard-nav">Keyboard Navigation</Label>
-                    <p className="text-sm text-muted-foreground">Navigate using keyboard shortcuts</p>
-                  </div>
-                  <Switch
-                    id="keyboard-nav"
-                    checked={settings.keyboardNav}
-                    onCheckedChange={(checked) => updateSetting("keyboardNav", checked)}
-                  />
-                </div>
-
                 <div className="flex items-center justify-between">
                   <div>
                     <Label htmlFor="high-contrast">High Contrast Mode</Label>
@@ -272,7 +386,7 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                   <Switch
                     id="high-contrast"
                     checked={settings.highContrast}
-                    onCheckedChange={(checked) => updateSetting("highContrast", checked)}
+                    onCheckedChange={(checked) => handleSettingChange("highContrast", checked)}
                   />
                 </div>
 
@@ -284,66 +398,93 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                   <Switch
                     id="reduced-motion"
                     checked={settings.reducedMotion}
-                    onCheckedChange={(checked) => updateSetting("reducedMotion", checked)}
+                    onCheckedChange={(checked) => handleSettingChange("reducedMotion", checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="screen-reader">Screen Reader Support</Label>
+                    <p className="text-sm text-muted-foreground">Enhanced support for screen readers</p>
+                  </div>
+                  <Switch
+                    id="screen-reader"
+                    checked={settings.screenReader}
+                    onCheckedChange={(checked) => handleSettingChange("screenReader", checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="keyboard-nav">Keyboard Navigation</Label>
+                    <p className="text-sm text-muted-foreground">Enable full keyboard navigation</p>
+                  </div>
+                  <Switch
+                    id="keyboard-nav"
+                    checked={settings.keyboardNav}
+                    onCheckedChange={(checked) => handleSettingChange("keyboardNav", checked)}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
                     <Label htmlFor="focus-indicators">Focus Indicators</Label>
-                    <p className="text-sm text-muted-foreground">Show clear focus outlines</p>
+                    <p className="text-sm text-muted-foreground">Show clear focus indicators</p>
                   </div>
                   <Switch
                     id="focus-indicators"
                     checked={settings.focusIndicators}
-                    onCheckedChange={(checked) => updateSetting("focusIndicators", checked)}
+                    onCheckedChange={(checked) => handleSettingChange("focusIndicators", checked)}
                   />
                 </div>
 
-                {/* Keyboard Shortcuts Reference */}
-                <Separator />
-                <div className="space-y-2">
-                  <Label>Keyboard Shortcuts</Label>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
+                <Card className="bg-muted/50">
+                  <CardHeader>
+                    <CardTitle className="text-sm">Keyboard Shortcuts</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span>Toggle Sidebar:</span>
-                      <Badge variant="outline">Ctrl + B</Badge>
+                      <span>Toggle Theme</span>
+                      <Badge variant="outline">Ctrl + Shift + T</Badge>
                     </div>
                     <div className="flex justify-between">
-                      <span>Search:</span>
+                      <span>Open Calendar</span>
+                      <Badge variant="outline">Ctrl + 1</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Open Trading</span>
+                      <Badge variant="outline">Ctrl + 2</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Search</span>
                       <Badge variant="outline">Ctrl + K</Badge>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Settings:</span>
-                      <Badge variant="outline">Ctrl + ,</Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Help:</span>
-                      <Badge variant="outline">F1</Badge>
-                    </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Notification Settings */}
+          {/* Notifications Tab */}
           <TabsContent value="notifications" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>Manage alerts and notification settings</CardDescription>
+                <CardTitle className="flex items-center space-x-2">
+                  <Bell className="h-5 w-5" />
+                  <span>Notification Settings</span>
+                </CardTitle>
+                <CardDescription>Configure how and when you receive notifications</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <Label htmlFor="price-alerts">Price Alerts</Label>
-                    <p className="text-sm text-muted-foreground">Get notified of significant price changes</p>
+                    <p className="text-sm text-muted-foreground">Get notified when prices hit your targets</p>
                   </div>
                   <Switch
                     id="price-alerts"
                     checked={settings.priceAlerts}
-                    onCheckedChange={(checked) => updateSetting("priceAlerts", checked)}
+                    onCheckedChange={(checked) => handleSettingChange("priceAlerts", checked)}
                   />
                 </div>
 
@@ -355,7 +496,7 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                   <Switch
                     id="email-notifications"
                     checked={settings.emailNotifications}
-                    onCheckedChange={(checked) => updateSetting("emailNotifications", checked)}
+                    onCheckedChange={(checked) => handleSettingChange("emailNotifications", checked)}
                   />
                 </div>
 
@@ -367,106 +508,37 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                   <Switch
                     id="push-notifications"
                     checked={settings.pushNotifications}
-                    onCheckedChange={(checked) => updateSetting("pushNotifications", checked)}
+                    onCheckedChange={(checked) => handleSettingChange("pushNotifications", checked)}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="sound-enabled">Sound Alerts</Label>
-                    <p className="text-sm text-muted-foreground">Play sounds for notifications</p>
+                    <Label htmlFor="sound-alerts">Sound Alerts</Label>
+                    <p className="text-sm text-muted-foreground">Play sounds for important alerts</p>
                   </div>
                   <Switch
-                    id="sound-enabled"
-                    checked={settings.soundEnabled}
-                    onCheckedChange={(checked) => updateSetting("soundEnabled", checked)}
-                  />
-                </div>
-
-                {settings.soundEnabled && (
-                  <div className="space-y-2">
-                    <Label>Alert Volume: {settings.alertVolume[0]}%</Label>
-                    <Slider
-                      value={settings.alertVolume}
-                      onValueChange={(value) => updateSetting("alertVolume", value)}
-                      max={100}
-                      min={0}
-                      step={5}
-                      className="w-full"
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Data Settings */}
-          <TabsContent value="data" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Data Management</CardTitle>
-                <CardDescription>Control data refresh and storage settings</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="auto-refresh">Auto Refresh</Label>
-                    <p className="text-sm text-muted-foreground">Automatically update market data</p>
-                  </div>
-                  <Switch
-                    id="auto-refresh"
-                    checked={settings.autoRefresh}
-                    onCheckedChange={(checked) => updateSetting("autoRefresh", checked)}
-                  />
-                </div>
-
-                {settings.autoRefresh && (
-                  <div className="space-y-2">
-                    <Label>Refresh Interval</Label>
-                    <Select
-                      value={settings.refreshInterval.toString()}
-                      onValueChange={(value) => updateSetting("refreshInterval", Number.parseInt(value))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 second</SelectItem>
-                        <SelectItem value="5">5 seconds</SelectItem>
-                        <SelectItem value="10">10 seconds</SelectItem>
-                        <SelectItem value="30">30 seconds</SelectItem>
-                        <SelectItem value="60">1 minute</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="data-caching">Data Caching</Label>
-                    <p className="text-sm text-muted-foreground">Cache data for faster loading</p>
-                  </div>
-                  <Switch
-                    id="data-caching"
-                    checked={settings.dataCaching}
-                    onCheckedChange={(checked) => updateSetting("dataCaching", checked)}
+                    id="sound-alerts"
+                    checked={settings.soundAlerts}
+                    onCheckedChange={(checked) => handleSettingChange("soundAlerts", checked)}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Data Retention</Label>
+                  <Label>Alert Frequency</Label>
                   <Select
-                    value={settings.dataRetention.toString()}
-                    onValueChange={(value) => updateSetting("dataRetention", Number.parseInt(value))}
+                    value={settings.alertFrequency}
+                    onValueChange={(value) => handleSettingChange("alertFrequency", value)}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="7">7 days</SelectItem>
-                      <SelectItem value="30">30 days</SelectItem>
-                      <SelectItem value="90">90 days</SelectItem>
-                      <SelectItem value="365">1 year</SelectItem>
+                      <SelectItem value="immediate">Immediate</SelectItem>
+                      <SelectItem value="5min">Every 5 minutes</SelectItem>
+                      <SelectItem value="15min">Every 15 minutes</SelectItem>
+                      <SelectItem value="1hour">Every hour</SelectItem>
+                      <SelectItem value="daily">Daily digest</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -474,23 +546,26 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
             </Card>
           </TabsContent>
 
-          {/* Trading Settings */}
+          {/* Trading Tab */}
           <TabsContent value="trading" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Trading Preferences</CardTitle>
-                <CardDescription>Configure trading behavior and safety settings</CardDescription>
+                <CardTitle className="flex items-center space-x-2">
+                  <Settings className="h-5 w-5" />
+                  <span>Trading Settings</span>
+                </CardTitle>
+                <CardDescription>Configure trading preferences and risk management</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <Label htmlFor="confirm-orders">Confirm Orders</Label>
-                    <p className="text-sm text-muted-foreground">Show confirmation dialog before placing orders</p>
+                    <p className="text-sm text-muted-foreground">Require confirmation before placing orders</p>
                   </div>
                   <Switch
                     id="confirm-orders"
                     checked={settings.confirmOrders}
-                    onCheckedChange={(checked) => updateSetting("confirmOrders", checked)}
+                    onCheckedChange={(checked) => handleSettingChange("confirmOrders", checked)}
                   />
                 </div>
 
@@ -498,101 +573,209 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                   <Label>Default Leverage: {settings.defaultLeverage[0]}x</Label>
                   <Slider
                     value={settings.defaultLeverage}
-                    onValueChange={(value) => updateSetting("defaultLeverage", value)}
-                    max={100}
+                    onValueChange={(value) => handleSettingChange("defaultLeverage", value)}
+                    max={125}
                     min={1}
                     step={1}
-                    className="w-full"
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
                     <Label htmlFor="risk-warnings">Risk Warnings</Label>
-                    <p className="text-sm text-muted-foreground">Show risk warnings for high-leverage trades</p>
+                    <p className="text-sm text-muted-foreground">Show warnings for high-risk trades</p>
                   </div>
                   <Switch
                     id="risk-warnings"
                     checked={settings.riskWarnings}
-                    onCheckedChange={(checked) => updateSetting("riskWarnings", checked)}
+                    onCheckedChange={(checked) => handleSettingChange("riskWarnings", checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="paper-trading">Paper Trading Mode</Label>
+                    <p className="text-sm text-muted-foreground">Practice trading with virtual funds</p>
+                  </div>
+                  <Switch
+                    id="paper-trading"
+                    checked={settings.paperTrading}
+                    onCheckedChange={(checked) => handleSettingChange("paperTrading", checked)}
                   />
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Privacy Settings */}
+          {/* Privacy Tab */}
           <TabsContent value="privacy" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Privacy & Data</CardTitle>
-                <CardDescription>Control your privacy and data sharing preferences</CardDescription>
+                <CardTitle className="flex items-center space-x-2">
+                  <Shield className="h-5 w-5" />
+                  <span>Privacy & Security</span>
+                </CardTitle>
+                <CardDescription>Manage your privacy settings and security preferences</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="share-data">Share Anonymous Data</Label>
-                    <p className="text-sm text-muted-foreground">Help improve the platform with anonymous usage data</p>
+                    <Label htmlFor="share-data">Share Usage Data</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Help improve the platform by sharing anonymous usage data
+                    </p>
                   </div>
                   <Switch
                     id="share-data"
                     checked={settings.shareData}
-                    onCheckedChange={(checked) => updateSetting("shareData", checked)}
+                    onCheckedChange={(checked) => handleSettingChange("shareData", checked)}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
                     <Label htmlFor="analytics">Analytics</Label>
-                    <p className="text-sm text-muted-foreground">Allow analytics tracking for platform improvement</p>
+                    <p className="text-sm text-muted-foreground">Allow analytics tracking for better user experience</p>
                   </div>
                   <Switch
                     id="analytics"
                     checked={settings.analytics}
-                    onCheckedChange={(checked) => updateSetting("analytics", checked)}
+                    onCheckedChange={(checked) => handleSettingChange("analytics", checked)}
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
                     <Label htmlFor="cookies">Cookies</Label>
-                    <p className="text-sm text-muted-foreground">Allow cookies for enhanced functionality</p>
+                    <p className="text-sm text-muted-foreground">Allow cookies for personalization</p>
                   </div>
                   <Switch
                     id="cookies"
                     checked={settings.cookies}
-                    onCheckedChange={(checked) => updateSetting("cookies", checked)}
+                    onCheckedChange={(checked) => handleSettingChange("cookies", checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="two-factor">Two-Factor Authentication</Label>
+                    <p className="text-sm text-muted-foreground">Add an extra layer of security to your account</p>
+                  </div>
+                  <Switch
+                    id="two-factor"
+                    checked={settings.twoFactor}
+                    onCheckedChange={(checked) => handleSettingChange("twoFactor", checked)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Data Retention</Label>
+                  <Select
+                    value={settings.dataRetention}
+                    onValueChange={(value) => handleSettingChange("dataRetention", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30days">30 Days</SelectItem>
+                      <SelectItem value="90days">90 Days</SelectItem>
+                      <SelectItem value="6months">6 Months</SelectItem>
+                      <SelectItem value="1year">1 Year</SelectItem>
+                      <SelectItem value="forever">Forever</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Data Management */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Database className="h-5 w-5" />
+                  <span>Data Management</span>
+                </CardTitle>
+                <CardDescription>Export, import, and manage your application data</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="auto-sync">Auto Sync</Label>
+                    <p className="text-sm text-muted-foreground">Automatically sync data across devices</p>
+                  </div>
+                  <Switch
+                    id="auto-sync"
+                    checked={settings.autoSync}
+                    onCheckedChange={(checked) => handleSettingChange("autoSync", checked)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Export Format</Label>
+                  <Select
+                    value={settings.exportFormat}
+                    onValueChange={(value) => handleSettingChange("exportFormat", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="json">JSON</SelectItem>
+                      <SelectItem value="csv">CSV</SelectItem>
+                      <SelectItem value="xlsx">Excel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex space-x-2">
+                  <Button onClick={handleExportSettings} variant="outline">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Settings
+                  </Button>
+                  <div>
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportSettings}
+                      className="hidden"
+                      id="import-settings"
+                    />
+                    <Button asChild variant="outline">
+                      <label htmlFor="import-settings" className="cursor-pointer">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Import Settings
+                      </label>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="api-access">API Access</Label>
+                    <p className="text-sm text-muted-foreground">Enable API access for third-party applications</p>
+                  </div>
+                  <Switch
+                    id="api-access"
+                    checked={settings.apiAccess}
+                    onCheckedChange={(checked) => handleSettingChange("apiAccess", checked)}
                   />
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
 
-        {/* Settings Actions */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Settings Management</CardTitle>
-            <CardDescription>Export, import, or reset your settings</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-4">
-              <Button onClick={exportSettings} variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export Settings
-              </Button>
-              <Button variant="outline" onClick={() => document.getElementById("import-settings")?.click()}>
-                <Upload className="h-4 w-4 mr-2" />
-                Import Settings
-              </Button>
-              <input id="import-settings" type="file" accept=".json" onChange={importSettings} className="hidden" />
-              <Button>
-                <Save className="h-4 w-4 mr-2" />
-                Save Changes
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          {/* Save Button */}
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => onNavigate("home")}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveSettings}>
+              <Save className="h-4 w-4 mr-2" />
+              Save All Settings
+            </Button>
+          </div>
+        </Tabs>
       </div>
     </div>
   )
