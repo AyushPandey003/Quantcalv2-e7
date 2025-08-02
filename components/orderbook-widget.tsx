@@ -81,7 +81,7 @@ export function OrderbookWidget({ symbol }: OrderbookWidgetProps) {
         }
 
         ws.onerror = (error) => {
-          console.error("Orderbook WebSocket error:", error)
+          // console.error("Orderbook WebSocket error:", error)
           setLoading(false)
         }
 

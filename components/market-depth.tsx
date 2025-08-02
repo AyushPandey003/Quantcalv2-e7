@@ -94,7 +94,7 @@ export function MarketDepth({ symbol }: MarketDepthProps) {
         }
 
         ws.onerror = (error) => {
-          console.error("Market depth WebSocket error:", error)
+          // console.error("Market depth WebSocket error:", error)
           setLoading(false)
         }
 

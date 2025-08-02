@@ -111,7 +111,6 @@ export function useBinanceData(symbol: string) {
         }
 
         ws.onerror = (error) => {
-          console.error("WebSocket error:", error)
           setIsConnected(false)
           setConnectionStatus("Error")
           setError("WebSocket connection error")

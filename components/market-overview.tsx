@@ -7,11 +7,11 @@ import { TrendingUp, TrendingDown } from "lucide-react"
 
 interface MarketData {
   symbol: string
-  price: string
+  weightedAvgPrice: string
   priceChangePercent: string
   volume: string
-  high: string
-  low: string
+  highPrice: string
+  lowPrice: string
 }
 
 export function MarketOverview() {
@@ -26,8 +26,10 @@ export function MarketOverview() {
         const promises = symbols.map((symbol) =>
           fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`).then((res) => res.json()),
         )
+        console.log("Fetching market data for symbols:", symbols)
 
         const results = await Promise.all(promises)
+        console.log("Market data fetched successfully:", results)
         setMarketData(results)
         setLoading(false)
       } catch (error) {
@@ -66,7 +68,7 @@ export function MarketOverview() {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {marketData.map((coin) => {
         const isPositive = Number.parseFloat(coin.priceChangePercent) >= 0
-        const price = Number.parseFloat(coin.price)
+        const price = Number.parseFloat(coin.weightedAvgPrice)
         const change = Number.parseFloat(coin.priceChangePercent)
         const volume = Number.parseFloat(coin.volume)
 
@@ -87,11 +89,11 @@ export function MarketOverview() {
                 <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
                   <div>
                     <div>24h High</div>
-                    <div className="font-medium">${Number.parseFloat(coin.high).toLocaleString()}</div>
+                    <div className="font-medium">${Number.parseFloat(coin.highPrice).toLocaleString()}</div>
                   </div>
                   <div>
                     <div>24h Low</div>
-                    <div className="font-medium">${Number.parseFloat(coin.low).toLocaleString()}</div>
+                    <div className="font-medium">${Number.parseFloat(coin.lowPrice).toLocaleString()}</div>
                   </div>
                 </div>
                 <div className="text-sm text-muted-foreground">
