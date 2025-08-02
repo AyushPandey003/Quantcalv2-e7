@@ -84,9 +84,6 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, time
 
     // Effect for fetching historical data
     useEffect(() => {
-        // Don't run if data is already loaded or is in the process of loading.
-        if (seriesConfigs) return;
-
         let isMounted = true;
         const fetchAndSetData = async () => {
             try {
@@ -110,27 +107,46 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, time
         const intervalId = setInterval(fetchAndSetData, POLLING_INTERVAL);
 
         return () => { isMounted = false; clearInterval(intervalId); };
-    }, [symbol, timeframe, seriesConfigs]); // Re-run if props change and configs are null
+    }, [symbol, timeframe]); // Removed seriesConfigs dependency to prevent infinite loops
 
     // Real-time updates and series creation callbacks remain the same
     useEffect(() => {
         if (!candleSeriesRef.current || !volumeSeriesRef.current) return;
+        
         const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@kline_${timeframe}`);
+        
         ws.onopen = () => console.log(`WebSocket connected for ${symbol}@${timeframe}`);
+        
         ws.onmessage = (event) => {
             try {
                 const k = JSON.parse(event.data).k;
                 if (k) {
                     const time = (k.t / 1000) as UTCTimestamp;
-                    candleSeriesRef.current?.update({ time, open: parseFloat(k.o), high: parseFloat(k.h), low: parseFloat(k.l), close: parseFloat(k.c) });
-                    volumeSeriesRef.current?.update({ time, value: parseFloat(k.v), color: parseFloat(k.c) >= parseFloat(k.o) ? "rgba(34, 197, 135, 0.5)" : "rgba(239, 68, 68, 0.5)" });
+                    candleSeriesRef.current?.update({ 
+                        time, 
+                        open: parseFloat(k.o), 
+                        high: parseFloat(k.h), 
+                        low: parseFloat(k.l), 
+                        close: parseFloat(k.c) 
+                    });
+                    volumeSeriesRef.current?.update({ 
+                        time, 
+                        value: parseFloat(k.v), 
+                        color: parseFloat(k.c) >= parseFloat(k.o) ? "rgba(34, 197, 135, 0.5)" : "rgba(239, 68, 68, 0.5)" 
+                    });
                 }
-            } catch (e) { console.error("Failed to parse WebSocket message:", e); }
+            } catch (e) { 
+                console.error("Failed to parse WebSocket message:", e); 
+            }
         };
+        
         ws.onerror = (err) => console.error("WebSocket Error:", err);
         ws.onclose = (event) => console.log(`WebSocket disconnected for ${symbol}@${timeframe}. Code: ${event.code}`);
-        return () => { if (ws.readyState === WebSocket.OPEN) ws.close(); };
-    }, [symbol, timeframe, candleSeriesRef.current, volumeSeriesRef.current]);
+        
+        return () => { 
+            if (ws.readyState === WebSocket.OPEN) ws.close(); 
+        };
+    }, [symbol, timeframe]); // Removed refs from dependency array
 
     const handleSeriesCreated = useCallback((series: ISeriesApi<any>, index: number) => {
         if (index === 0) candleSeriesRef.current = series;
@@ -145,7 +161,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, time
     if (!seriesConfigs) return <div className="w-full h-[400px] flex items-center justify-center">Loading chart...</div>;
 
     return (
-        <div className="w-full h-[400px]">
+        <div className="w-full h-full">
             <GenericChart
                 key={symbol + timeframe} // Essential for correct remounting when props change
                 chartOptions={chartOptions} // Use the dynamic, memoized options

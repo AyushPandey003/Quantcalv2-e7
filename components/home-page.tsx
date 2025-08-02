@@ -1,18 +1,22 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, TrendingUp, BarChart3, Activity, Shield, Zap, ArrowRight, Globe, PieChart } from "lucide-react"
+import { Calendar, TrendingUp, BarChart3, Activity, Shield, Zap, ArrowRight, Globe, PieChart, LogIn, UserPlus, Menu, X } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { MarketOverview } from "@/components/market-overview"
 import { FeaturedCharts } from "@/components/featured-charts"
+import Link from "next/link"
 
 interface HomePageProps {
   onNavigate: (view: "home" | "calendar" | "dashboard" | "profile") => void
 }
 
 export function HomePage({ onNavigate }: HomePageProps) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       {/* Navigation Header */}
@@ -25,6 +29,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
             <span className="text-xl font-bold">QuantCal</span>
           </div>
 
+          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-6">
             <Button variant="ghost" onClick={() => onNavigate("home")}>
               Home
@@ -40,11 +45,71 @@ export function HomePage({ onNavigate }: HomePageProps) {
             </Button>
           </nav>
 
-          <div className="flex items-center space-x-2">
+          {/* Desktop Auth Buttons */}
+          <div className="hidden md:flex items-center space-x-2">
             <ThemeToggle />
-            <Button onClick={() => onNavigate("dashboard")}>Get Started</Button>
+            <Button variant="outline" asChild>
+              <Link href="/login">
+                <LogIn className="h-4 w-4 mr-2" />
+                Login
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/register">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Sign Up
+              </Link>
+            </Button>
+          </div>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden flex items-center space-x-2">
+            <ThemeToggle />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t bg-background/95 backdrop-blur">
+            <div className="px-4 py-4 space-y-4">
+              <nav className="flex flex-col space-y-2">
+                <Button variant="ghost" className="justify-start" onClick={() => { onNavigate("home"); setMobileMenuOpen(false); }}>
+                  Home
+                </Button>
+                <Button variant="ghost" className="justify-start" onClick={() => { onNavigate("calendar"); setMobileMenuOpen(false); }}>
+                  Calendar
+                </Button>
+                <Button variant="ghost" className="justify-start" onClick={() => { onNavigate("dashboard"); setMobileMenuOpen(false); }}>
+                  Trading
+                </Button>
+                <Button variant="ghost" className="justify-start" onClick={() => { onNavigate("profile"); setMobileMenuOpen(false); }}>
+                  Profile
+                </Button>
+              </nav>
+              <div className="flex flex-col space-y-2 pt-4 border-t">
+                <Button variant="outline" asChild className="justify-start">
+                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                    <LogIn className="h-4 w-4 mr-2" />
+                    Login
+                  </Link>
+                </Button>
+                <Button asChild className="justify-start">
+                  <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Sign Up
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Hero Section */}

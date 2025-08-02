@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,9 +28,19 @@ import {
   Save,
   Eye,
   EyeOff,
+  Loader2,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useToast } from "@/hooks/use-toast"
+import { 
+  getUserProfileAction, 
+  updateUserProfileAction, 
+  updateUserSettingsAction, 
+  changePasswordAction,
+  exportUserDataAction,
+  type ProfileActionResult 
+} from "@/actions/profile"
+import { type UserSettingsData } from "@/lib/auth/user-profile-service"
 
 interface UserProfileProps {
   onNavigate: (view: "home" | "calendar" | "dashboard" | "profile") => void
@@ -38,11 +48,14 @@ interface UserProfileProps {
 
 export function UserProfile({ onNavigate }: UserProfileProps) {
   const { toast } = useToast()
-  const [settings, setSettings] = useState({
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [userData, setUserData] = useState<any>(null)
+  const [settings, setSettings] = useState<UserSettingsData>({
     // Display Settings
     theme: "system",
-    fontSize: [14],
-    chartHeight: [400],
+    fontSize: 14,
+    chartHeight: 400,
     colorScheme: "default",
     showGrid: true,
     showVolume: true,
@@ -69,7 +82,7 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
 
     // Trading Settings
     confirmOrders: true,
-    defaultLeverage: [1],
+    defaultLeverage: 1,
     riskWarnings: true,
     paperTrading: false,
 
@@ -81,15 +94,106 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
   })
 
   const [profile, setProfile] = useState({
-    name: "John Doe",
-    email: "john.doe@example.com",
-    bio: "Professional trader with 5+ years experience in cryptocurrency markets.",
-    location: "New York, USA",
-    website: "https://johndoe.trading",
-    twitter: "@johndoe",
+    firstName: "",
+    lastName: "",
+    email: "",
+    username: "",
+    phoneNumber: "",
+    dateOfBirth: "",
+    bio: "",
+    location: "",
+    website: "",
+    twitter: "",
+    profileImage: "",
   })
 
   const [showPassword, setShowPassword] = useState(false)
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+  })
+
+  // Load user data on component mount
+  useEffect(() => {
+    loadUserData()
+  }, [])
+
+  const loadUserData = async () => {
+    try {
+      setLoading(true)
+      const result = await getUserProfileAction()
+      
+      if (result.success && result.data) {
+        const { user, preferences } = result.data
+        
+        // Set profile data
+        setProfile({
+          firstName: user.firstName || "",
+          lastName: user.lastName || "",
+          email: user.email || "",
+          username: user.username || "",
+          phoneNumber: user.phoneNumber || "",
+          dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : "",
+          bio: user.bio || "",
+          location: user.location || "",
+          website: user.website || "",
+          twitter: user.twitter || "",
+          profileImage: user.profileImage || "",
+        })
+
+        // Set settings data if preferences exist
+        if (preferences) {
+          setSettings({
+            theme: preferences.theme || "system",
+            fontSize: preferences.tradingPreferences?.fontSize || 14,
+            chartHeight: preferences.tradingPreferences?.chartHeight || 400,
+            colorScheme: preferences.tradingPreferences?.colorScheme || "default",
+            showGrid: preferences.tradingPreferences?.showGrid ?? true,
+            showVolume: preferences.tradingPreferences?.showVolume ?? true,
+            highContrast: preferences.accessibilitySettings?.highContrast ?? false,
+            reducedMotion: preferences.accessibilitySettings?.reducedMotion ?? false,
+            screenReader: preferences.accessibilitySettings?.screenReader ?? false,
+            keyboardNav: preferences.accessibilitySettings?.keyboardNav ?? true,
+            focusIndicators: preferences.accessibilitySettings?.focusIndicators ?? true,
+            priceAlerts: preferences.notifications?.priceAlerts ?? true,
+            emailNotifications: preferences.notifications?.email ?? true,
+            pushNotifications: preferences.notifications?.push ?? false,
+            soundAlerts: preferences.notifications?.soundAlerts ?? true,
+            alertFrequency: preferences.notifications?.alertFrequency || "immediate",
+            dataRetention: preferences.dataSettings?.dataRetention || "1year",
+            autoSync: preferences.dataSettings?.autoSync ?? true,
+            exportFormat: preferences.dataSettings?.exportFormat || "json",
+            apiAccess: preferences.dataSettings?.apiAccess ?? false,
+            confirmOrders: preferences.tradingPreferences?.confirmOrders ?? true,
+            defaultLeverage: preferences.tradingPreferences?.defaultLeverage || 1,
+            riskWarnings: preferences.tradingPreferences?.riskWarnings ?? true,
+            paperTrading: preferences.tradingPreferences?.paperTrading ?? false,
+            shareData: preferences.privacySettings?.shareData ?? false,
+            analytics: preferences.privacySettings?.analytics ?? true,
+            cookies: preferences.privacySettings?.cookies ?? true,
+            twoFactor: preferences.privacySettings?.twoFactor ?? false,
+          })
+        }
+
+        setUserData(user)
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Failed to load user data",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error loading user data:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load user data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSettingChange = (key: string, value: any) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
@@ -99,27 +203,142 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
     setProfile((prev) => ({ ...prev, [key]: value }))
   }
 
-  const handleSaveSettings = () => {
-    // Save settings logic here
-    toast({
-      title: "Settings Saved",
-      description: "Your preferences have been updated successfully.",
-    })
+  const handlePasswordChange = (key: string, value: string) => {
+    setPasswordData((prev) => ({ ...prev, [key]: value }))
   }
 
-  const handleExportSettings = () => {
-    const dataStr = JSON.stringify(settings, null, 2)
-    const dataBlob = new Blob([dataStr], { type: "application/json" })
-    const url = URL.createObjectURL(dataBlob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = "quantcal-settings.json"
-    link.click()
+  const handleSaveProfile = async () => {
+    try {
+      setSaving(true)
+      
+      const formData = new FormData()
+      Object.entries(profile).forEach(([key, value]) => {
+        if (value) formData.append(key, value)
+      })
 
-    toast({
-      title: "Settings Exported",
-      description: "Your settings have been downloaded as a JSON file.",
-    })
+      const result = await updateUserProfileAction(formData)
+      
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Profile updated successfully",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Failed to update profile",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error saving profile:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save profile",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSaveSettings = async () => {
+    try {
+      setSaving(true)
+      
+      const result = await updateUserSettingsAction(settings)
+      
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Settings saved successfully",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Failed to save settings",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error saving settings:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save settings",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleChangePassword = async () => {
+    try {
+      setSaving(true)
+      
+      const formData = new FormData()
+      formData.append('currentPassword', passwordData.currentPassword)
+      formData.append('newPassword', passwordData.newPassword)
+
+      const result = await changePasswordAction(formData)
+      
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Password changed successfully",
+        })
+        setPasswordData({ currentPassword: "", newPassword: "" })
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Failed to change password",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error changing password:", error)
+      toast({
+        title: "Error",
+        description: "Failed to change password",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleExportSettings = async () => {
+    try {
+      const result = await exportUserDataAction()
+      
+      if (result.success && result.data) {
+        const dataStr = JSON.stringify(result.data, null, 2)
+        const dataBlob = new Blob([dataStr], { type: "application/json" })
+        const url = URL.createObjectURL(dataBlob)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = "quantcal-user-data.json"
+        link.click()
+
+        toast({
+          title: "Settings Exported",
+          description: "Your data has been downloaded as a JSON file.",
+        })
+      } else {
+        toast({
+          title: "Export Failed",
+          description: result.message || "Failed to export data",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error exporting data:", error)
+      toast({
+        title: "Export Failed",
+        description: "Failed to export data",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleImportSettings = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,8 +347,18 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
       const reader = new FileReader()
       reader.onload = (e) => {
         try {
-          const importedSettings = JSON.parse(e.target?.result as string)
-          setSettings(importedSettings)
+          const importedData = JSON.parse(e.target?.result as string)
+          
+          // Update settings if imported data contains settings
+          if (importedData.settings) {
+            setSettings(importedData.settings)
+          }
+          
+          // Update profile if imported data contains profile
+          if (importedData.profile) {
+            setProfile(importedData.profile)
+          }
+          
           toast({
             title: "Settings Imported",
             description: "Your settings have been imported successfully.",
@@ -144,6 +373,17 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
       }
       reader.readAsText(file)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading profile...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -198,20 +438,60 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="name">Full Name</Label>
+                    <Label htmlFor="firstName">First Name</Label>
                     <Input
-                      id="name"
-                      value={profile.name}
-                      onChange={(e) => handleProfileChange("name", e.target.value)}
+                      id="firstName"
+                      value={profile.firstName}
+                      onChange={(e) => handleProfileChange("firstName", e.target.value)}
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      value={profile.lastName}
+                      onChange={(e) => handleProfileChange("lastName", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="email">Email Address</Label>
                     <Input
                       id="email"
                       type="email"
                       value={profile.email}
-                      onChange={(e) => handleProfileChange("email", e.target.value)}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      value={profile.username}
+                      onChange={(e) => handleProfileChange("username", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="phoneNumber">Phone Number</Label>
+                    <Input
+                      id="phoneNumber"
+                      value={profile.phoneNumber}
+                      onChange={(e) => handleProfileChange("phoneNumber", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                    <Input
+                      id="dateOfBirth"
+                      type="date"
+                      value={profile.dateOfBirth}
+                      onChange={(e) => handleProfileChange("dateOfBirth", e.target.value)}
                     />
                   </div>
                 </div>
@@ -258,9 +538,28 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                 <Separator />
 
                 <div>
-                  <Label htmlFor="password">Change Password</Label>
+                  <Label htmlFor="currentPassword">Current Password</Label>
                   <div className="relative">
-                    <Input id="password" type={showPassword ? "text" : "password"} placeholder="Enter new password" />
+                    <Input 
+                      id="currentPassword" 
+                      type={showPassword ? "text" : "password"} 
+                      placeholder="Enter current password"
+                      value={passwordData.currentPassword}
+                      onChange={(e) => handlePasswordChange("currentPassword", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <div className="relative">
+                    <Input 
+                      id="newPassword" 
+                      type={showPassword ? "text" : "password"} 
+                      placeholder="Enter new password"
+                      value={passwordData.newPassword}
+                      onChange={(e) => handlePasswordChange("newPassword", e.target.value)}
+                    />
                     <Button
                       type="button"
                       variant="ghost"
@@ -273,10 +572,15 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                   </div>
                 </div>
 
-                <Button onClick={handleSaveSettings}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Profile
-                </Button>
+                <div className="flex space-x-2">
+                  <Button onClick={handleSaveProfile} disabled={saving}>
+                    {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                    Save Profile
+                  </Button>
+                  <Button onClick={handleChangePassword} disabled={saving} variant="outline">
+                    Change Password
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -307,10 +611,10 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Font Size: {settings.fontSize[0]}px</Label>
+                  <Label>Font Size: {settings.fontSize}px</Label>
                   <Slider
-                    value={settings.fontSize}
-                    onValueChange={(value) => handleSettingChange("fontSize", value)}
+                    value={[settings.fontSize]}
+                    onValueChange={(value) => handleSettingChange("fontSize", value[0])}
                     max={20}
                     min={12}
                     step={1}
@@ -318,10 +622,10 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Chart Height: {settings.chartHeight[0]}px</Label>
+                  <Label>Chart Height: {settings.chartHeight}px</Label>
                   <Slider
-                    value={settings.chartHeight}
-                    onValueChange={(value) => handleSettingChange("chartHeight", value)}
+                    value={[settings.chartHeight]}
+                    onValueChange={(value) => handleSettingChange("chartHeight", value[0])}
                     max={800}
                     min={200}
                     step={50}
@@ -570,10 +874,10 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Default Leverage: {settings.defaultLeverage[0]}x</Label>
+                  <Label>Default Leverage: {settings.defaultLeverage}x</Label>
                   <Slider
-                    value={settings.defaultLeverage}
-                    onValueChange={(value) => handleSettingChange("defaultLeverage", value)}
+                    value={[settings.defaultLeverage]}
+                    onValueChange={(value) => handleSettingChange("defaultLeverage", value[0])}
                     max={125}
                     min={1}
                     step={1}
@@ -729,8 +1033,8 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                 </div>
 
                 <div className="flex space-x-2">
-                  <Button onClick={handleExportSettings} variant="outline">
-                    <Download className="h-4 w-4 mr-2" />
+                  <Button onClick={handleExportSettings} disabled={saving}>
+                    {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
                     Export Settings
                   </Button>
                   <div>
@@ -741,9 +1045,9 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                       className="hidden"
                       id="import-settings"
                     />
-                    <Button asChild variant="outline">
+                    <Button asChild variant="outline" disabled={saving}>
                       <label htmlFor="import-settings" className="cursor-pointer">
-                        <Upload className="h-4 w-4 mr-2" />
+                        {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
                         Import Settings
                       </label>
                     </Button>
@@ -770,8 +1074,8 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
             <Button variant="outline" onClick={() => onNavigate("home")}>
               Cancel
             </Button>
-            <Button onClick={handleSaveSettings}>
-              <Save className="h-4 w-4 mr-2" />
+            <Button onClick={handleSaveSettings} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Save All Settings
             </Button>
           </div>
