@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { useSettings } from "@/contexts/settings-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,50 +49,10 @@ interface UserProfileProps {
 
 export function UserProfile({ onNavigate }: UserProfileProps) {
   const { toast } = useToast()
+  const { settings, updateSettings } = useSettings()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [userData, setUserData] = useState<any>(null)
-  const [settings, setSettings] = useState<UserSettingsData>({
-    // Display Settings
-    theme: "system",
-    fontSize: 14,
-    chartHeight: 400,
-    colorScheme: "default",
-    showGrid: true,
-    showVolume: true,
-
-    // Accessibility Settings
-    highContrast: false,
-    reducedMotion: false,
-    screenReader: false,
-    keyboardNav: true,
-    focusIndicators: true,
-
-    // Notification Settings
-    priceAlerts: true,
-    emailNotifications: true,
-    pushNotifications: false,
-    soundAlerts: true,
-    alertFrequency: "immediate",
-
-    // Data Settings
-    dataRetention: "1year",
-    autoSync: true,
-    exportFormat: "json",
-    apiAccess: false,
-
-    // Trading Settings
-    confirmOrders: true,
-    defaultLeverage: 1,
-    riskWarnings: true,
-    paperTrading: false,
-
-    // Privacy Settings
-    shareData: false,
-    analytics: true,
-    cookies: true,
-    twoFactor: false,
-  })
 
   const [profile, setProfile] = useState({
     firstName: "",
@@ -196,7 +157,7 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
   }
 
   const handleSettingChange = (key: string, value: any) => {
-    setSettings((prev) => ({ ...prev, [key]: value }))
+    updateSettings({ [key]: value })
   }
 
   const handleProfileChange = (key: string, value: string) => {

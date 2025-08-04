@@ -2,7 +2,9 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import "../styles/accessibility.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { SettingsProvider } from "@/contexts/settings-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -21,9 +23,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          {children}
-        </ThemeProvider>
+        <SettingsProvider>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+            <a href="#main-content" className="skip-link">
+              Skip to main content
+            </a>
+            <main id="main-content">
+              {children}
+            </main>
+          </ThemeProvider>
+        </SettingsProvider>
       </body>
     </html>
   )

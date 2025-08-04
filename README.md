@@ -1,30 +1,71 @@
 # Interactive React Calendar
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+## Running Locally
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/ayush12122003-gmailcoms-projects/v0-interactive-react-calendar)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/BkHTQwm3vzR)
+To run this project locally, follow these steps:
 
-## Overview
+1. **Install [pnpm](https://pnpm.io/):**
+   If you don't have pnpm installed, run:
+   ```sh
+   npm install -g pnpm
+   ```
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+2. **Install dependencies:**
+   ```sh
+   pnpm install
+   ```
 
-## Deployment
+3. **Run the development server:**
+   ```sh
+   pnpm dev
+   ```
+   The app will be available at [http://localhost:3000](http://localhost:3000).
 
-Your project is live at:
+4. **Environment Variables:**
+   - If your app requires environment variables, create a `.env.local` file in the root directory and add the required variables as specified in the documentation or codebase.
 
-**[https://vercel.com/ayush12122003-gmailcoms-projects/v0-interactive-react-calendar](https://vercel.com/ayush12122003-gmailcoms-projects/v0-interactive-react-calendar)**
+5. **Build for production:**
+   ```sh
+   pnpm build
+   ```
+   To preview the production build:
+   ```sh
+   pnpm start
+   ```
 
-## Build your app
+## Database Setup (Drizzle ORM with Neon)
 
-Continue building your app on:
+This project uses Drizzle ORM with a Neon serverless Postgres database. To get started, you'll need to set up your database and environment variables.
 
-**[https://v0.dev/chat/projects/BkHTQwm3vzR](https://v0.dev/chat/projects/BkHTQwm3vzR)**
+1. **Create a Neon Account and Project:**
+   - Go to [Neon](https://neon.tech/) and create a new project.
+   - In your project's dashboard, find the **Connection Details** section.
+   - Copy the connection string that looks like this: `postgresql://<user>:<password>@<endpoint_id>.neon.tech/neondb?sslmode=require`
 
-## How It Works
+2. **Set Up Environment Variables:**
+   - Create a `.env` file in the root of the project.
+   - Add the following line, replacing the placeholder with your actual database connection string:
+     ```
+     DATABASE_URL="postgresql://<user>:<password>@<endpoint_id>.neon.tech/neondb?sslmode=require"
+     ```
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+3. **Install Dependencies:**
+   - If you haven't already, install the necessary packages:
+     ```sh
+     pnpm install drizzle-orm @neondatabase/serverless pg
+     pnpm install -D drizzle-kit
+     ```
+
+4. **Generate Migrations:**
+   - Whenever you make changes to your database schema (in `lib/db/schema.ts`), generate a migration file:
+     ```sh
+     pnpm drizzle-kit generate:pg
+     ```
+
+5. **Apply Migrations:**
+   - To apply the migrations and update your database schema, run:
+     ```sh
+     pnpm drizzle-kit push:pg
+     ```
+
+Refer to the `drizzle.config.ts` file and the [Drizzle ORM documentation](https://orm.drizzle.team/docs/overview) for more details.

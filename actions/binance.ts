@@ -38,7 +38,7 @@ export async function getKlines(
         const volumes: HistogramData[] = [];
 
         for (const d of data) {
-            const time = (d[0] / 1000) as UTCTimestamp;
+            const time = Math.floor(d[0] / 1000) as UTCTimestamp;
             const open = parseFloat(d[1]);
             const close = parseFloat(d[4]);
             const color = close >= open ? "rgba(34, 197, 135, 0.5)" : "rgba(239, 68, 68, 0.5)";

@@ -11,6 +11,7 @@ interface FilterControlsProps {
   onSymbolChange: (symbol: string) => void
   timeframe: "day" | "week" | "month"
   onTimeframeChange: (timeframe: "day" | "week" | "month") => void
+  data: any[]
 }
 
 const POPULAR_SYMBOLS = [
@@ -26,10 +27,29 @@ const POPULAR_SYMBOLS = [
   "MATICUSDT",
 ]
 
-export function FilterControls({ selectedSymbol, onSymbolChange, timeframe, onTimeframeChange }: FilterControlsProps) {
+
+export function FilterControls({ selectedSymbol, onSymbolChange, timeframe, onTimeframeChange, data }: FilterControlsProps) {
   const handleExport = () => {
-    // Export functionality would be implemented here
-    console.log("Exporting data...")
+    if (!data || data.length === 0) {
+      alert("No data to export.")
+      return
+    }
+    // Convert data to CSV
+    const replacer = (key: string, value: any) => (value === null || value === undefined ? '' : value)
+    const header = Object.keys(data[0])
+    const csv = [
+      header.join(','),
+      ...data.map(row => header.map(fieldName => JSON.stringify(row[fieldName], replacer)).join(','))
+    ].join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `export-${selectedSymbol}-${timeframe}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
   }
 
   const handleRefresh = () => {

@@ -307,6 +307,7 @@ export function CalendarView({
           onSymbolChange={onSymbolChange}
           timeframe={timeframe}
           onTimeframeChange={onTimeframeChange}
+          data={data}
         />
 
         {/* Main Content */}
