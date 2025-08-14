@@ -30,6 +30,7 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  RefreshCw,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useToast } from "@/hooks/use-toast"
@@ -49,7 +50,7 @@ interface UserProfileProps {
 
 export function UserProfile({ onNavigate }: UserProfileProps) {
   const { toast } = useToast()
-  const { settings, updateSettings } = useSettings()
+  const { settings, updateSettings, setSettings, syncWithBackend } = useSettings()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [userData, setUserData] = useState<any>(null)
@@ -104,7 +105,7 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
 
         // Set settings data if preferences exist
         if (preferences) {
-          setSettings({
+          const backendSettings: UserSettingsData = {
             theme: preferences.theme || "system",
             fontSize: preferences.tradingPreferences?.fontSize || 14,
             chartHeight: preferences.tradingPreferences?.chartHeight || 400,
@@ -133,7 +134,9 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
             analytics: preferences.privacySettings?.analytics ?? true,
             cookies: preferences.privacySettings?.cookies ?? true,
             twoFactor: preferences.privacySettings?.twoFactor ?? false,
-          })
+          }
+          
+          setSettings(backendSettings)
         }
 
         setUserData(user)
@@ -214,6 +217,9 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
           title: "Success",
           description: "Settings saved successfully",
         })
+        
+        // Refresh settings from backend to ensure sync
+        await syncWithBackend()
       } else {
         toast({
           title: "Error",
@@ -333,6 +339,22 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
         }
       }
       reader.readAsText(file)
+    }
+  }
+
+  const handleRefreshSettings = async () => {
+    try {
+      await syncWithBackend()
+      toast({
+        title: "Settings Refreshed",
+        description: "Settings have been synced with the backend.",
+      })
+    } catch (error) {
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to sync settings with backend.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -1034,6 +1056,10 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
           <div className="flex justify-end space-x-2">
             <Button variant="outline" onClick={() => onNavigate("home")}>
               Cancel
+            </Button>
+            <Button variant="outline" onClick={handleRefreshSettings} disabled={saving}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
             </Button>
             <Button onClick={handleSaveSettings} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}

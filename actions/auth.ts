@@ -385,6 +385,10 @@ export async function resetPasswordAction(formData: FormData): Promise<ActionRes
 async function setAuthCookies(accessToken: string, refreshToken: string) {
   const cookieStore = await cookies();
   
+  console.log('🍪 Setting auth cookies...');
+  console.log('🔑 Access token length:', accessToken.length);
+  console.log('🔄 Refresh token length:', refreshToken.length);
+  
   // Set access token cookie (persistent, 1 day)
   cookieStore.set('access_token', accessToken, {
     httpOnly: true,
@@ -402,6 +406,8 @@ async function setAuthCookies(accessToken: string, refreshToken: string) {
     maxAge: 30 * 24 * 60 * 60, // 30 days
     path: '/',
   });
+  
+  console.log('✅ Auth cookies set successfully');
 }
 
 async function clearAuthCookies() {
@@ -425,7 +431,7 @@ export async function getCurrentUser() {
       return null;
     }
 
-    const result = await AuthService.getUserById(payload.userId);
+    const result = await AuthService.getUserById(payload.sub);
     return result.success ? result.user : null;
   } catch (error) {
     console.error('Get current user error:', error);

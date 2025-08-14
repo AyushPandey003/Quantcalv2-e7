@@ -45,6 +45,17 @@ export class AuthService {
   // Register a new user
   static async register(data: RegisterData): Promise<AuthResult> {
     try {
+      // Test database connection first
+      try {
+        await db.execute('SELECT 1 as test');
+      } catch (dbError) {
+        console.error('Database connection test failed:', dbError);
+        return {
+          success: false,
+          message: 'Database connection failed. Please try again later.',
+        };
+      }
+
       // Validate password strength
       const passwordValidation = PasswordUtils.validatePasswordStrength(data.password);
       if (!passwordValidation.isValid) {
@@ -99,7 +110,10 @@ export class AuthService {
         role: 'user',
       };
 
+      console.log('Attempting to create user:', { ...newUser, passwordHash: '[HIDDEN]' });
+
       const [createdUser] = await db.insert(users).values(newUser).returning();
+      console.log('User created successfully:', createdUser.id);
 
       // Create default user preferences
       await db.insert(userPreferences).values({
@@ -131,9 +145,38 @@ export class AuthService {
       };
     } catch (error) {
       console.error('Registration error:', error);
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('duplicate key')) {
+          return {
+            success: false,
+            message: 'User with this email or username already exists.',
+          };
+        }
+        if (error.message.includes('database')) {
+          return {
+            success: false,
+            message: 'Database connection error. Please try again.',
+          };
+        }
+        if (error.message.includes('schema')) {
+          return {
+            success: false,
+            message: 'Invalid data format. Please check your input.',
+          };
+        }
+        if (error.message.includes('relation') || error.message.includes('table')) {
+          return {
+            success: false,
+            message: 'Database schema error. Tables may not exist.',
+          };
+        }
+      }
+      
       return {
         success: false,
-        message: 'Registration failed. Please try again.',
+        message: `Registration failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }
@@ -141,6 +184,8 @@ export class AuthService {
   // Login user
   static async login(data: LoginData): Promise<AuthResult> {
     try {
+      console.log('Login attempt for email:', data.email);
+      
       // Find user by email
       const [user] = await db
         .select()
@@ -149,14 +194,18 @@ export class AuthService {
         .limit(1);
 
       if (!user) {
+        console.log('User not found for email:', data.email);
         return {
           success: false,
           message: 'Invalid email or password',
         };
       }
 
+      console.log('User found:', { id: user.id, email: user.email, isActive: user.isActive });
+
       // Check if user is active
       if (!user.isActive) {
+        console.log('User account is deactivated:', user.id);
         return {
           success: false,
           message: 'Account is deactivated. Please contact support.',
@@ -164,8 +213,12 @@ export class AuthService {
       }
 
       // Verify password
+      console.log('Verifying password for user:', user.id);
       const isPasswordValid = await PasswordUtils.verifyPassword(data.password, user.passwordHash);
+      console.log('Password verification result:', isPasswordValid);
+      
       if (!isPasswordValid) {
+        console.log('Invalid password for user:', user.id);
         return {
           success: false,
           message: 'Invalid email or password',
@@ -173,7 +226,9 @@ export class AuthService {
       }
 
       // Generate JWT tokens
+      console.log('Generating JWT tokens for user:', user.id);
       const tokenPair = await JWTAuth.generateTokenPair(user.id, user.email, user.role || 'user');
+      console.log('JWT tokens generated successfully');
 
       // Save refresh token to database
       const sessionData: NewUserSession = {
@@ -184,9 +239,12 @@ export class AuthService {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       };
 
+      console.log('Saving session to database for user:', user.id);
       await db.insert(userSessions).values(sessionData);
+      console.log('Session saved successfully');
 
       // Log activity
+      console.log('Logging login activity for user:', user.id);
       await this.logActivity(user.id, 'user_login', {
         ipAddress: data.ipAddress,
         deviceInfo: data.deviceInfo,
@@ -195,6 +253,7 @@ export class AuthService {
       // Remove password hash from response
       const { passwordHash: _, ...userWithoutPassword } = user;
 
+      console.log('Login successful for user:', user.id);
       return {
         success: true,
         message: 'Login successful',
@@ -207,9 +266,32 @@ export class AuthService {
       };
     } catch (error) {
       console.error('Login error:', error);
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('JWT')) {
+          return {
+            success: false,
+            message: 'Token generation failed. Please try again.',
+          };
+        }
+        if (error.message.includes('session') || error.message.includes('user_sessions')) {
+          return {
+            success: false,
+            message: 'Session creation failed. Please try again.',
+          };
+        }
+        if (error.message.includes('database')) {
+          return {
+            success: false,
+            message: 'Database error during login. Please try again.',
+          };
+        }
+      }
+      
       return {
         success: false,
-        message: 'Login failed. Please try again.',
+        message: `Login failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }

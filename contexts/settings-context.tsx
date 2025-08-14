@@ -2,11 +2,14 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { type UserSettingsData } from "@/lib/auth/user-profile-service";
+import { getUserProfileAction } from "@/actions/profile";
 
 interface SettingsContextType {
   settings: UserSettingsData;
   updateSettings: (newSettings: Partial<UserSettingsData>) => void;
+  setSettings: (settings: UserSettingsData) => void;
   isLoading: boolean;
+  syncWithBackend: () => Promise<void>;
 }
 
 const defaultSettings: UserSettingsData = {
@@ -58,25 +61,78 @@ interface SettingsProviderProps {
 }
 
 export function SettingsProvider({ children }: SettingsProviderProps) {
-  const [settings, setSettings] = useState<UserSettingsData>(defaultSettings);
+  const [settings, setSettingsState] = useState<UserSettingsData>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Load settings from localStorage or API
-    const loadSettings = async () => {
+  // Load settings from backend on initialization
+  const syncWithBackend = async () => {
+    try {
+      const result = await getUserProfileAction();
+      
+      if (result.success && result.data?.preferences) {
+        const preferences = result.data.preferences;
+        
+        // Map backend preferences to settings format
+        const backendSettings: UserSettingsData = {
+          theme: preferences.theme || "system",
+          fontSize: preferences.tradingPreferences?.fontSize || 14,
+          chartHeight: preferences.tradingPreferences?.chartHeight || 400,
+          colorScheme: preferences.tradingPreferences?.colorScheme || "default",
+          showGrid: preferences.tradingPreferences?.showGrid ?? true,
+          showVolume: preferences.tradingPreferences?.showVolume ?? true,
+          highContrast: preferences.accessibilitySettings?.highContrast ?? false,
+          reducedMotion: preferences.accessibilitySettings?.reducedMotion ?? false,
+          screenReader: preferences.accessibilitySettings?.screenReader ?? false,
+          keyboardNav: preferences.accessibilitySettings?.keyboardNav ?? true,
+          focusIndicators: preferences.accessibilitySettings?.focusIndicators ?? true,
+          priceAlerts: preferences.notifications?.priceAlerts ?? true,
+          emailNotifications: preferences.notifications?.email ?? true,
+          pushNotifications: preferences.notifications?.push ?? false,
+          soundAlerts: preferences.notifications?.soundAlerts ?? true,
+          alertFrequency: preferences.notifications?.alertFrequency || "immediate",
+          dataRetention: preferences.dataSettings?.dataRetention || "1year",
+          autoSync: preferences.dataSettings?.autoSync ?? true,
+          exportFormat: preferences.dataSettings?.exportFormat || "json",
+          apiAccess: preferences.dataSettings?.apiAccess ?? false,
+          confirmOrders: preferences.tradingPreferences?.confirmOrders ?? true,
+          defaultLeverage: preferences.tradingPreferences?.defaultLeverage || 1,
+          riskWarnings: preferences.tradingPreferences?.riskWarnings ?? true,
+          paperTrading: preferences.tradingPreferences?.paperTrading ?? false,
+          shareData: preferences.privacySettings?.shareData ?? false,
+          analytics: preferences.privacySettings?.analytics ?? true,
+          cookies: preferences.privacySettings?.cookies ?? true,
+          twoFactor: preferences.privacySettings?.twoFactor ?? false,
+        };
+        
+        setSettingsState(backendSettings);
+        
+        // Also save to localStorage as backup
+        try {
+          localStorage.setItem("userSettings", JSON.stringify(backendSettings));
+        } catch (error) {
+          console.error("Failed to save settings to localStorage:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to sync settings with backend:", error);
+      
+      // Fallback to localStorage if backend fails
       try {
         const savedSettings = localStorage.getItem("userSettings");
         if (savedSettings) {
-          setSettings({ ...defaultSettings, ...JSON.parse(savedSettings) });
+          setSettingsState({ ...defaultSettings, ...JSON.parse(savedSettings) });
         }
-      } catch (error) {
-        console.error("Failed to load settings:", error);
-      } finally {
-        setIsLoading(false);
+      } catch (localError) {
+        console.error("Failed to load settings from localStorage:", localError);
       }
-    };
+    }
+  };
 
-    loadSettings();
+  useEffect(() => {
+    // Load settings from backend on mount
+    syncWithBackend().finally(() => {
+      setIsLoading(false);
+    });
   }, []);
 
   useEffect(() => {
@@ -123,18 +179,35 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
 
   const updateSettings = (newSettings: Partial<UserSettingsData>) => {
     const updatedSettings = { ...settings, ...newSettings };
-    setSettings(updatedSettings);
+    setSettingsState(updatedSettings);
     
-    // Save to localStorage
+    // Save to localStorage as backup
     try {
       localStorage.setItem("userSettings", JSON.stringify(updatedSettings));
     } catch (error) {
-      console.error("Failed to save settings:", error);
+      console.error("Failed to save settings to localStorage:", error);
+    }
+  };
+
+  const setSettings = (newSettings: UserSettingsData) => {
+    setSettingsState(newSettings);
+    
+    // Save to localStorage as backup
+    try {
+      localStorage.setItem("userSettings", JSON.stringify(newSettings));
+    } catch (error) {
+      console.error("Failed to save settings to localStorage:", error);
     }
   };
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSettings, isLoading }}>
+    <SettingsContext.Provider value={{ 
+      settings, 
+      updateSettings, 
+      setSettings,
+      isLoading, 
+      syncWithBackend 
+    }}>
       {children}
     </SettingsContext.Provider>
   );

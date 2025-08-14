@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useRequireAuth } from '@/hooks/use-auth';
+import { WagmiProvider, useAccount, useConnect, useDisconnect } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { config as wagmiConfig } from '@/lib/wagmi';
 import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
@@ -39,9 +42,12 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <Button onClick={handleLogout} variant="outline">
-              Logout
-            </Button>
+            <div className="flex items-center gap-2">
+              <InlineWalletButton />
+              <Button onClick={handleLogout} variant="outline">
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -148,5 +154,84 @@ export default function DashboardPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+// Inline wallet connect button scoped to this page
+const queryClient = new QueryClient();
+
+function InlineWalletButton() {
+  return (
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <WalletButton />
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
+}
+
+function WalletButton() {
+  const { address, isConnected } = useAccount();
+  const { connect, connectors, status } = useConnect();
+  const { disconnect } = useDisconnect();
+
+  const metaMaskConnector = (connectors || []).find((c) => c.id === 'metaMask');
+  const injectedConnector = (connectors || []).find((c) => c.id === 'injected');
+  const selected = metaMaskConnector || injectedConnector || (connectors || [])[0];
+
+  const shortAddr = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+
+  const hasEthereum = typeof window !== 'undefined' && (window as any).ethereum;
+
+  if (!selected && !hasEthereum) {
+    return (
+      <Button
+        variant="outline"
+        onClick={() => window.open('https://metamask.io/download/', '_blank')}
+      >
+        Install MetaMask
+      </Button>
+    );
+  }
+
+  if (status === 'pending') {
+    return (
+      <Button disabled variant="outline">
+        Connecting...
+      </Button>
+    );
+  }
+
+  if (isConnected && address) {
+    return (
+      <Button variant="outline" onClick={() => disconnect()}>
+        {shortAddr(address)} · Disconnect
+      </Button>
+    );
+  }
+
+  const handleConnectClick = async () => {
+    try {
+      if (selected) {
+        await connect({ connector: selected });
+        return;
+      }
+      const eth = (typeof window !== 'undefined' && (window as any).ethereum) || null;
+      if (eth) {
+        await eth.request({ method: 'eth_requestAccounts' });
+        // Optional: refresh UI to reflect connected state
+        if (typeof window !== 'undefined') window.location.reload();
+        return;
+      }
+      window.open('https://metamask.io/download/', '_blank');
+    } catch (e) {
+      console.error('Connect click error:', e);
+    }
+  };
+
+  return (
+    <Button onClick={handleConnectClick}>
+      Connect Wallet
+    </Button>
   );
 }

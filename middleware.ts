@@ -38,6 +38,9 @@ const protectedPagePaths = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Debug logging
+  console.log('🔒 Middleware processing:', pathname);
+
   // Skip middleware for static files and Next.js internals
   if (
     pathname.startsWith('/_next') ||
@@ -68,8 +71,12 @@ export async function middleware(request: NextRequest) {
   // Get access token from cookies
   const accessToken = request.cookies.get('access_token')?.value;
   
+  console.log('🔑 Access token found:', accessToken ? 'Yes' : 'No');
+  console.log('🛡️ Protected path check:', { isProtectedApiPath, isProtectedPagePath });
+  
   // If no token, redirect to login or return unauthorized
   if (!accessToken) {
+    console.log('❌ No access token, redirecting to login');
     if (isProtectedApiPath) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
@@ -87,9 +94,13 @@ export async function middleware(request: NextRequest) {
   }
 
   // Verify token
+  console.log('🔍 Verifying access token...');
   const payload = await JWTAuth.verifyAccessToken(accessToken);
   
+  console.log('✅ Token verification result:', payload ? 'Valid' : 'Invalid');
+  
   if (!payload) {
+    console.log('❌ Token verification failed');
     // Token is invalid
     if (isProtectedApiPath) {
       return NextResponse.json(
@@ -110,8 +121,8 @@ export async function middleware(request: NextRequest) {
   // Token is valid, add user info to headers for API routes
   if (isProtectedApiPath && payload) {
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-user-id', payload.userId);
-    requestHeaders.set('x-user-email', payload.email);
+    requestHeaders.set('x-user-id', payload.sub); // Use 'sub' instead of 'userId'
+    requestHeaders.set('x-user-email', payload.email || '');
     requestHeaders.set('x-user-role', payload.role || 'user');
 
     return NextResponse.next({
