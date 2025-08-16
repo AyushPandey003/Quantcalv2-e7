@@ -5,6 +5,9 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { UserProfileService, type UserProfileData, type UserSettingsData } from '@/lib/auth/user-profile-service';
 import { JWTAuth } from '@/lib/auth/jwt';
+import { db } from '@/lib/db/db';
+import { userActivityLogs } from '@/lib/db/schema';
+import { desc, eq } from 'drizzle-orm';
 
 // Validation schemas
 const profileSchema = z.object({
@@ -86,7 +89,8 @@ async function getCurrentUserId(): Promise<string | null> {
     }
 
     const payload = await JWTAuth.verifyAccessToken(accessToken);
-    return payload?.userId || null;
+  // Access token stores user id in standard 'sub' claim
+  return (payload as any)?.userId || (payload as any)?.sub || null;
   } catch (error) {
     console.error('Error getting current user ID:', error);
     return null;
@@ -306,3 +310,28 @@ export async function exportUserDataAction(): Promise<ProfileActionResult> {
     };
   }
 } 
+
+// Get recent user activity logs
+export async function getRecentActivityAction(limit: number = 10): Promise<ProfileActionResult> {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return { success: false, message: 'Not authenticated' };
+    }
+
+    const logs = await db.select()
+      .from(userActivityLogs)
+      .where(eq(userActivityLogs.userId, userId))
+      .orderBy(desc(userActivityLogs.createdAt))
+      .limit(limit);
+
+    return {
+      success: true,
+      message: 'Activity fetched',
+      data: logs,
+    };
+  } catch (error) {
+    console.error('Get recent activity error:', error);
+    return { success: false, message: 'Failed to fetch activity' };
+  }
+}

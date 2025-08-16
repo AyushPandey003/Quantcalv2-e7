@@ -2,7 +2,14 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "crypto";
+// Edge runtime does not support Node's 'crypto' randomBytes. Use Web Crypto instead.
+
+function randomHex(byteLength: number): string {
+  const arr = new Uint8Array(byteLength);
+  // globalThis.crypto is available in both Edge runtime and modern Node (>=18)
+  globalThis.crypto.getRandomValues(arr);
+  return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+}
 
 const secretKey = process.env.JWT_ACCESS_TOKEN_SECRET;
 const refreshSecretKey = process.env.JWT_REFRESH_TOKEN_SECRET || secretKey;
@@ -99,7 +106,7 @@ export async function updateSession(request: NextRequest) {
 
 export class JWTAuth {
   static async generateTokenPair(userId: string, email: string, role: string): Promise<TokenPair> {
-    const jti = randomBytes(16).toString('hex');
+  const jti = randomHex(16);
     const now = Math.floor(Date.now() / 1000);
     
     // Access token - short lived
@@ -174,8 +181,7 @@ export class JWTAuth {
     try {
       const decoded = await this.verifyRefreshToken(refreshToken);
       if (!decoded) return null;
-
-      const jti = randomBytes(16).toString('hex');
+  const jti = randomHex(16);
       const now = Math.floor(Date.now() / 1000);
 
       const newAccessToken = await new SignJWT({
@@ -197,7 +203,7 @@ export class JWTAuth {
 }
 
 export function generateSecureToken(): string {
-  return randomBytes(32).toString('hex');
+  return randomHex(32);
 }
 
 export function isTokenExpired(expiresAt: Date): boolean {

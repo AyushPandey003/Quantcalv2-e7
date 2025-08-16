@@ -304,5 +304,3 @@ Enable debug logging by setting:
 ```env
 DEBUG=true
 ```
-
-This will provide detailed logs for authentication operations.

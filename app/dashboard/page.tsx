@@ -4,6 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useRequireAuth } from '@/hooks/use-auth';
+import { useEffect, useState } from 'react';
+import { getRecentActivityAction } from '@/actions/profile';
+import { getWatchlistsAction, createWatchlistAction, getPriceAlertsAction, createPriceAlertAction, getTradingAccountsAction, createTradingAccountAction } from '@/actions/dashboard';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { WagmiProvider, useAccount, useConnect, useDisconnect } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { config as wagmiConfig } from '@/lib/wagmi';
@@ -12,6 +18,20 @@ import { useRouter } from 'next/navigation';
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading } = useRequireAuth();
+
+  const [activity, setActivity] = useState<any[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setActivityLoading(true);
+      getRecentActivityAction(8).then(res => {
+        if (res.success && Array.isArray(res.data)) {
+          setActivity(res.data as any[]);
+        }
+      }).finally(() => setActivityLoading(false));
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -101,16 +121,10 @@ export default function DashboardPage() {
                 <CardDescription>Common tasks and features</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button className="w-full" variant="outline">
-                  View Watchlists
-                </Button>
-                <Button className="w-full" variant="outline">
-                  Price Alerts
-                </Button>
-                <Button className="w-full" variant="outline">
-                  Trading Accounts
-                </Button>
-                <Button className="w-full" variant="outline">
+                <WatchlistsModal />
+                <PriceAlertsModal />
+                <TradingAccountsModal />
+                <Button className="w-full" variant="outline" onClick={() => router.push('/profile')}>
                   Settings
                 </Button>
               </CardContent>
@@ -146,9 +160,25 @@ export default function DashboardPage() {
               <CardDescription>Your recent account activity</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-gray-500 text-center py-8">
-                No recent activity to display
-              </div>
+              {activityLoading ? (
+                <div className="text-gray-500 text-center py-8">Loading activity...</div>
+              ) : activity.length === 0 ? (
+                <div className="text-gray-500 text-center py-8">No recent activity to display</div>
+              ) : (
+                <ul className="space-y-3">
+                  {activity.map(item => (
+                    <li key={item.id} className="flex items-start justify-between border-b pb-2 last:border-b-0 last:pb-0">
+                      <div>
+                        <div className="font-medium text-sm">{item.action.replace(/_/g,' ')}</div>
+                        {item.details && (
+                          <div className="text-xs text-gray-500 max-w-md truncate">{JSON.stringify(item.details)}</div>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-400">{new Date(item.createdAt).toLocaleString()}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -233,5 +263,189 @@ function WalletButton() {
     <Button onClick={handleConnectClick}>
       Connect Wallet
     </Button>
+  );
+}
+
+// --- Modal Components ---
+function WatchlistsModal() {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [list, setList] = useState<any[]>([]);
+  const [creating, setCreating] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const res = await getWatchlistsAction();
+    if (res.success && Array.isArray(res.data)) setList(res.data as any[]);
+    setLoading(false);
+  };
+  useEffect(() => { if (open) load(); }, [open]);
+
+  async function handleCreate(formData: FormData) {
+    setCreating(true);
+    await createWatchlistAction(formData);
+    setCreating(false);
+    load();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="w-full" variant="outline">View Watchlists</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Watchlists</DialogTitle>
+        </DialogHeader>
+        <form action={handleCreate} className="space-y-3 mb-4">
+          <div>
+            <Label htmlFor="wl-name">Name</Label>
+            <Input id="wl-name" name="name" required />
+          </div>
+            <div>
+            <Label htmlFor="wl-desc">Description</Label>
+            <Input id="wl-desc" name="description" />
+          </div>
+          <Button type="submit" disabled={creating}>{creating ? 'Creating...' : 'Add Watchlist'}</Button>
+        </form>
+        {loading ? <div className="text-sm text-gray-500">Loading...</div> : (
+          <ul className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {list.map(w => (
+              <li key={w.id} className="border rounded p-2 text-sm">
+                <div className="font-medium">{w.name}</div>
+                {w.description && <div className="text-xs text-gray-500">{w.description}</div>}
+                <div className="text-[10px] text-gray-400 mt-1">{new Date(w.createdAt).toLocaleString()}</div>
+              </li>
+            ))}
+            {list.length === 0 && <li className="text-xs text-gray-500">No watchlists yet.</li>}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PriceAlertsModal() {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [list, setList] = useState<any[]>([]);
+  const [creating, setCreating] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const res = await getPriceAlertsAction();
+    if (res.success && Array.isArray(res.data)) setList(res.data as any[]);
+    setLoading(false);
+  };
+  useEffect(() => { if (open) load(); }, [open]);
+
+  async function handleCreate(formData: FormData) {
+    setCreating(true);
+    await createPriceAlertAction(formData);
+    setCreating(false);
+    load();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="w-full" variant="outline">Price Alerts</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Price Alerts</DialogTitle>
+        </DialogHeader>
+        <form action={handleCreate} className="space-y-3 mb-4">
+          <div>
+            <Label htmlFor="pa-symbol">Symbol</Label>
+            <Input id="pa-symbol" name="symbol" placeholder="BTCUSDT" required />
+          </div>
+          <div>
+            <Label htmlFor="pa-target">Target Price</Label>
+            <Input id="pa-target" name="targetPrice" type="number" step="0.0001" min="0" required />
+          </div>
+          <Button type="submit" disabled={creating}>{creating ? 'Creating...' : 'Add Alert'}</Button>
+        </form>
+        {loading ? <div className="text-sm text-gray-500">Loading...</div> : (
+          <ul className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {list.map(a => (
+              <li key={a.id} className="border rounded p-2 text-sm flex justify-between">
+                <div>
+                  <div className="font-medium">{a.symbol}</div>
+                  <div className="text-xs text-gray-500">Target: {a.targetPrice}</div>
+                </div>
+                <div className="text-[10px] text-gray-400">{new Date(a.createdAt).toLocaleString()}</div>
+              </li>
+            ))}
+            {list.length === 0 && <li className="text-xs text-gray-500">No alerts yet.</li>}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TradingAccountsModal() {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [list, setList] = useState<any[]>([]);
+  const [creating, setCreating] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const res = await getTradingAccountsAction();
+    if (res.success && Array.isArray(res.data)) setList(res.data as any[]);
+    setLoading(false);
+  };
+  useEffect(() => { if (open) load(); }, [open]);
+
+  async function handleCreate(formData: FormData) {
+    setCreating(true);
+    await createTradingAccountAction(formData);
+    setCreating(false);
+    load();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="w-full" variant="outline">Trading Accounts</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Trading Accounts</DialogTitle>
+        </DialogHeader>
+        <form action={handleCreate} className="space-y-3 mb-4">
+          <div>
+            <Label htmlFor="ta-name">Account Name</Label>
+            <Input id="ta-name" name="accountName" required />
+          </div>
+          <div>
+            <Label htmlFor="ta-exchange">Exchange</Label>
+            <Input id="ta-exchange" name="exchangeName" placeholder="Binance" required />
+          </div>
+          <div>
+            <Label htmlFor="ta-type">Type</Label>
+            <select id="ta-type" name="accountType" className="w-full border rounded h-9 px-2 text-sm" required>
+              <option value="demo">Demo</option>
+              <option value="live">Live</option>
+            </select>
+          </div>
+          <Button type="submit" disabled={creating}>{creating ? 'Creating...' : 'Add Account'}</Button>
+        </form>
+        {loading ? <div className="text-sm text-gray-500">Loading...</div> : (
+          <ul className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {list.map(acc => (
+              <li key={acc.id} className="border rounded p-2 text-sm">
+                <div className="font-medium">{acc.accountName || '(unnamed)'}</div>
+                <div className="text-xs text-gray-500">{acc.exchangeName} • {acc.accountType}</div>
+                <div className="text-[10px] text-gray-400 mt-1">{new Date(acc.createdAt).toLocaleString()}</div>
+              </li>
+            ))}
+            {list.length === 0 && <li className="text-xs text-gray-500">No accounts yet.</li>}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

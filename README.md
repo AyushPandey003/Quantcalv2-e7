@@ -69,3 +69,30 @@ This project uses Drizzle ORM with a Neon serverless Postgres database. To get s
      ```
 
 Refer to the `drizzle.config.ts` file and the [Drizzle ORM documentation](https://orm.drizzle.team/docs/overview) for more details.
+
+## Environment Variables
+
+Create a `.env.local` with (adjust as needed):
+
+```
+DATABASE_URL=postgres://user:pass@host:5432/db
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# JWT / Auth (example)
+JWT_ACCESS_SECRET=your_access_secret
+JWT_REFRESH_SECRET=your_refresh_secret
+
+# Gmail API (choose ONE strategy)
+# 1) OAuth Client
+GMAIL_CLIENT_ID=...
+GMAIL_CLIENT_SECRET=...
+GMAIL_REFRESH_TOKEN=...
+GMAIL_SENDER=youremail@gmail.com
+
+# 2) Service Account (Workspace domain-wide delegation)
+GMAIL_SERVICE_ACCOUNT_CLIENT_EMAIL=...
+GMAIL_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GMAIL_IMPERSONATE=youremail@domain.com
+```
+
+Password reset emails will attempt to send via Gmail if credentials above are configured. Fallback: token is generated even if email fails silently.

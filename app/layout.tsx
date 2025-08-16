@@ -4,6 +4,9 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import "../styles/accessibility.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin"
+import { extractRouterConfig } from "uploadthing/server"
+import { ourFileRouter } from "./api/uploadthing/core"
 import { SettingsProvider } from "@/contexts/settings-context"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -22,9 +25,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+  <body className={inter.className}>
         <SettingsProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
             <a href="#main-content" className="skip-link">
               Skip to main content
             </a>

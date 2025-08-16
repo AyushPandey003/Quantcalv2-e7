@@ -4,8 +4,9 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, TrendingUp, DollarSign, TrendingDown, Activity, BarChart3 } from "lucide-react"
+import { ArrowLeft, TrendingUp, DollarSign, TrendingDown, Activity, BarChart3, LogOut } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { UserAvatar } from "@/components/user-avatar"
 import { CandlestickChart } from "@/components/candlestick-chart"
 import { CandlestickChart as EnhancedCandlestickChart } from "@/components/candlesticksChart"
 import { OrderbookWidget } from "@/components/orderbook-widget"
@@ -13,6 +14,7 @@ import { AdvancedCharts } from "@/components/advanced-charts"
 import { TradingPanel } from "@/components/trading-panel"
 import { MarketDepth } from "@/components/market-depth"
 import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/hooks/use-auth"
 
 interface TradingDashboardProps {
   onNavigate: (view: "home" | "calendar" | "dashboard" | "profile") => void
@@ -21,6 +23,12 @@ interface TradingDashboardProps {
 export function TradingDashboard({ onNavigate }: TradingDashboardProps) {
   const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT")
   const [selectedTimeframe, setSelectedTimeframe] = useState("1h")
+  const { user, logout, isAuthenticated } = useAuth()
+
+  const handleLogout = async () => {
+    await logout()
+    onNavigate("home")
+  }
 
   // Mock price data for demonstration
   const mockPriceData = {
@@ -54,10 +62,14 @@ export function TradingDashboard({ onNavigate }: TradingDashboardProps) {
             <Button variant="outline" onClick={() => onNavigate("calendar")}>
               Calendar View
             </Button>
-            <Button variant="outline" onClick={() => onNavigate("profile")}>
-              Profile
-            </Button>
             <ThemeToggle />
+            <UserAvatar onClick={() => onNavigate("profile")} />
+            {isAuthenticated && (
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            )}
           </div>
         </div>
       </header>

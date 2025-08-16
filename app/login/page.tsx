@@ -32,16 +32,30 @@ export default function LoginPage() {
     setFieldErrors({});
 
     startTransition(async () => {
-      const result = await loginAction(formData);
+      let result: any;
+      try {
+        result = await loginAction(formData);
+      } catch (e) {
+        console.error('loginAction threw error', e);
+        setError('Login failed due to a server error.');
+        return;
+      }
+
+      if (!result || typeof result !== 'object') {
+        console.error('Unexpected loginAction response', result);
+        setError('Unexpected server response.');
+        return;
+      }
 
       if (result.success) {
         router.push('/dashboard');
         router.refresh();
-      } else {
-        setError(result.message);
-        if (result.errors) {
-          setFieldErrors(result.errors as Record<string, string[]>);
-        }
+        return;
+      }
+
+      setError(result.message || 'Login failed');
+      if (result.errors) {
+        setFieldErrors(result.errors as Record<string, string[]>);
       }
     });
   }

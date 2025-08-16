@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useSettings } from "@/contexts/settings-context"
+import { useAuth } from "@/hooks/use-auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +15,7 @@ import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import {
   ArrowLeft,
@@ -31,8 +33,10 @@ import {
   EyeOff,
   Loader2,
   RefreshCw,
+  LogOut,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { UploadButton } from "@/lib/uploadthing"
 import { useToast } from "@/hooks/use-toast"
 import { 
   getUserProfileAction, 
@@ -51,9 +55,15 @@ interface UserProfileProps {
 export function UserProfile({ onNavigate }: UserProfileProps) {
   const { toast } = useToast()
   const { settings, updateSettings, setSettings, syncWithBackend } = useSettings()
+  const { user, logout, isAuthenticated } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [userData, setUserData] = useState<any>(null)
+
+  const handleLogout = async () => {
+    await logout()
+    onNavigate("home")
+  }
 
   const [profile, setProfile] = useState({
     firstName: "",
@@ -393,6 +403,12 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
               Trading
             </Button>
             <ThemeToggle />
+            {isAuthenticated && (
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -419,22 +435,48 @@ export function UserProfile({ onNavigate }: UserProfileProps) {
                 <CardDescription>Manage your personal information and public profile</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input
-                      id="firstName"
-                      value={profile.firstName}
-                      onChange={(e) => handleProfileChange("firstName", e.target.value)}
+                <div className="flex items-start gap-6 flex-col md:flex-row">
+                  <div className="flex flex-col items-center gap-2">
+                    <Avatar className="h-24 w-24">
+                      <AvatarImage src={profile.profileImage || "/placeholder-user.jpg"} alt="Avatar" />
+                      <AvatarFallback>{((profile.firstName?.[0] || "") + (profile.lastName?.[0] || "")) || "U"}</AvatarFallback>
+                    </Avatar>
+                    <UploadButton
+                      endpoint="avatarImage"
+                      onClientUploadComplete={(res) => {
+                        const url = res?.[0]?.url
+                        if (url) {
+                          handleProfileChange("profileImage", url)
+                          toast({ title: "Avatar Updated", description: "Profile image uploaded." })
+                        }
+                      }}
+                      onUploadError={(error: Error) => {
+                        toast({ title: "Upload Failed", description: error.message, variant: "destructive" })
+                      }}
+                      appearance={{
+                        button: "ut-ready:bg-primary ut-uploading:bg-muted ut-uploading:cursor-progress",
+                        container: "flex flex-col items-center gap-2",
+                        allowedContent: "text-xs text-muted-foreground"
+                      }}
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input
-                      id="lastName"
-                      value={profile.lastName}
-                      onChange={(e) => handleProfileChange("lastName", e.target.value)}
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                    <div>
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        value={profile.firstName}
+                        onChange={(e) => handleProfileChange("firstName", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        value={profile.lastName}
+                        onChange={(e) => handleProfileChange("lastName", e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
 

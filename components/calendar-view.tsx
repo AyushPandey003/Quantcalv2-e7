@@ -4,13 +4,15 @@ import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { ChevronLeft, ChevronRight, ArrowLeft, TrendingUp, Activity, BarChart3 } from "lucide-react"
+import { ChevronLeft, ChevronRight, ArrowLeft, TrendingUp, Activity, BarChart3, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { FilterControls } from "@/components/filter-controls"
 import { DataDashboard } from "@/components/data-dashboard"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { UserAvatar } from "@/components/user-avatar"
+import { useAuth } from "@/hooks/use-auth"
 
 interface CalendarViewProps {
   timeframe: "day" | "week" | "month"
@@ -48,6 +50,12 @@ export function CalendarView({
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [isRangeMode, setIsRangeMode] = useState(false)
   const [rangeStart, setRangeStart] = useState<Date | null>(null)
+  const { user, logout, isAuthenticated } = useAuth()
+
+  const handleLogout = async () => {
+    await logout()
+    onNavigate("home")
+  }
 
   // Calculate volatility and performance for each date
   const processedData = useMemo(() => {
@@ -249,6 +257,13 @@ export function CalendarView({
             </div>
             <ThemeToggle />
             <Button onClick={() => onNavigate("dashboard")}>Trading Dashboard</Button>
+            <UserAvatar onClick={() => onNavigate("profile")} />
+            {isAuthenticated && (
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            )}
           </div>
         </div>
       </header>

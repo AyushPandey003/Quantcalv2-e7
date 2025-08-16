@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { withUt } from "uploadthing/tw";
 
 // all in fixtures is set to tailwind v3 as interims solutions
 
@@ -93,6 +94,6 @@ const config: Config = {
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+	plugins: [require("tailwindcss-animate")],
 };
-export default config;
+export default withUt(config);

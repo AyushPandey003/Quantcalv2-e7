@@ -154,10 +154,12 @@ export async function logoutAction(): Promise<ActionResult> {
     if (refreshToken) {
       // Verify and invalidate session
       const payload = await JWTAuth.verifyRefreshToken(refreshToken);
-      if (payload?.sessionId) {
+      // Use type assertion if sessionId is expected in the payload
+      const sessionId = (payload as any).sessionId;
+      if (sessionId) {
         await db.update(userSessions)
           .set({ isActive: false })
-          .where(eq(userSessions.id, payload.sessionId));
+          .where(eq(userSessions.id, sessionId));
       }
     }
 

@@ -4,10 +4,12 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, TrendingUp, BarChart3, Activity, Shield, Zap, ArrowRight, Globe, PieChart, LogIn, UserPlus, Menu, X } from "lucide-react"
+import { Calendar, TrendingUp, BarChart3, Activity, Shield, Zap, ArrowRight, Globe, PieChart, LogIn, UserPlus, Menu, X, LogOut } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { UserAvatar } from "@/components/user-avatar"
 import { MarketOverview } from "@/components/market-overview"
 import { FeaturedCharts } from "@/components/featured-charts"
+import { useAuth } from "@/hooks/use-auth"
 import Link from "next/link"
 
 interface HomePageProps {
@@ -16,6 +18,12 @@ interface HomePageProps {
 
 export function HomePage({ onNavigate }: HomePageProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { user, logout, isAuthenticated, loading } = useAuth()
+
+  const handleLogout = async () => {
+    await logout()
+    setMobileMenuOpen(false)
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
@@ -46,25 +54,45 @@ export function HomePage({ onNavigate }: HomePageProps) {
           </nav>
 
           {/* Desktop Auth Buttons */}
-          <div className="hidden md:flex items-center space-x-2">
+          <div className="hidden md:flex items-center space-x-3">
             <ThemeToggle />
-            <Button variant="outline" asChild>
-              <Link href="/login">
-                <LogIn className="h-4 w-4 mr-2" />
-                Login
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link href="/register">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Sign Up
-              </Link>
-            </Button>
+            <UserAvatar onClick={() => onNavigate("profile")} />
+            {!loading && (
+              <div className="flex items-center space-x-2">
+                {isAuthenticated ? (
+                  <>
+                    <span className="text-sm text-muted-foreground">
+                      Welcome, {user?.firstName || user?.email}
+                    </span>
+                    <Button variant="outline" onClick={handleLogout}>
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" asChild>
+                      <Link href="/login">
+                        <LogIn className="h-4 w-4 mr-2" />
+                        Login
+                      </Link>
+                    </Button>
+                    <Button asChild>
+                      <Link href="/register">
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Sign Up
+                      </Link>
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center space-x-2">
             <ThemeToggle />
+            <UserAvatar onClick={() => { onNavigate("profile"); setMobileMenuOpen(false); }} />
             <Button
               variant="ghost"
               size="sm"
@@ -94,18 +122,36 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 </Button>
               </nav>
               <div className="flex flex-col space-y-2 pt-4 border-t">
-                <Button variant="outline" asChild className="justify-start">
-                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                    <LogIn className="h-4 w-4 mr-2" />
-                    Login
-                  </Link>
-                </Button>
-                <Button asChild className="justify-start">
-                  <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Sign Up
-                  </Link>
-                </Button>
+                {!loading && (
+                  <>
+                    {isAuthenticated ? (
+                      <>
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          Welcome, {user?.firstName || user?.email}
+                        </div>
+                        <Button variant="outline" className="justify-start" onClick={handleLogout}>
+                          <LogOut className="h-4 w-4 mr-2" />
+                          Logout
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button variant="outline" asChild className="justify-start">
+                          <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                            <LogIn className="h-4 w-4 mr-2" />
+                            Login
+                          </Link>
+                        </Button>
+                        <Button asChild className="justify-start">
+                          <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Sign Up
+                          </Link>
+                        </Button>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>

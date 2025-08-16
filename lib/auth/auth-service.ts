@@ -490,6 +490,19 @@ export class AuthService {
       // Log activity
       await this.logActivity(user.id, 'password_reset_requested');
 
+      // Attempt to send email if Gmail credentials configured
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000';
+        const resetLink = `${baseUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
+        const { sendPasswordResetEmail } = await import('./gmail-mailer');
+        const mailResult = await sendPasswordResetEmail(user.email, resetLink);
+        if (!mailResult.success) {
+          console.warn('Password reset email failed to send');
+        }
+      } catch (mailError) {
+        console.warn('Gmail not configured or send failed:', mailError);
+      }
+
       return {
         success: true,
         message: 'If an account exists with this email, a password reset link has been sent.',
