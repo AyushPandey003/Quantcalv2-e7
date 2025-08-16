@@ -1,13 +1,15 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { z } from 'zod';
 import { AuthService, type RegisterData, type LoginData } from '@/lib/auth/auth-service';
 import { JWTAuth } from '@/lib/auth/jwt';
 import { db } from '@/lib/db/db';
 import { userSessions, userActivityLogs } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { RateLimiterService } from '@/lib/security/rate-limiter';
+import { RecaptchaService } from '@/lib/security/recaptcha';
 
 // Validation schemas
 const registerSchema = z.object({
@@ -38,6 +40,10 @@ export interface ActionResult<T = any> {
 
 export async function registerAction(formData: FormData): Promise<ActionResult> {
   try {
+    // Get client IP and headers
+    const headersList = await headers();
+    const clientIP = RateLimiterService.getClientIP(headersList);
+
     // Parse and validate form data
     const rawData = {
       email: formData.get('email') as string,
@@ -45,19 +51,65 @@ export async function registerAction(formData: FormData): Promise<ActionResult> 
       firstName: formData.get('firstName') as string,
       lastName: formData.get('lastName') as string,
       username: formData.get('username') as string,
+      recaptchaToken: formData.get('recaptchaToken') as string,
     };
 
     const validatedData = registerSchema.parse(rawData);
 
-    // Register user
+    // 1. Check rate limiting
+    const rateLimitResult = await RateLimiterService.checkRegisterRateLimit(clientIP);
+    if (!rateLimitResult.success) {
+      await RateLimiterService.logSecurityEvent(clientIP, 'register_rate_limit_exceeded', {
+        email: validatedData.email,
+        limit: rateLimitResult.limit,
+        remaining: rateLimitResult.remaining,
+      });
+
+      return {
+        success: false,
+        message: rateLimitResult.blocked
+          ? rateLimitResult.blockReason!
+          : `Too many registration attempts. Please try again in ${Math.ceil((rateLimitResult.reset - Date.now()) / 1000)} seconds.`,
+      };
+    }
+
+    // 2. Verify reCAPTCHA if enabled
+    if (RecaptchaService.isEnabled() && rawData.recaptchaToken) {
+      const recaptchaResult = await RecaptchaService.verifyToken(rawData.recaptchaToken, clientIP);
+      if (!recaptchaResult.success) {
+        await RateLimiterService.incrementFailedAttempts(clientIP);
+        await RateLimiterService.logSecurityEvent(clientIP, 'register_recaptcha_failed', {
+          email: validatedData.email,
+          error: recaptchaResult.error,
+        });
+
+        return {
+          success: false,
+          message: 'reCAPTCHA verification failed. Please try again.',
+        };
+      }
+    }
+
+    // 3. Register user
     const result = await AuthService.register(validatedData);
 
     if (!result.success) {
+      await RateLimiterService.logSecurityEvent(clientIP, 'register_failed', {
+        email: validatedData.email,
+        reason: result.message,
+      });
+
       return {
         success: false,
         message: result.message,
       };
     }
+
+    // 4. Log successful registration
+    await RateLimiterService.logSecurityEvent(clientIP, 'register_success', {
+      email: validatedData.email,
+      userId: result.user?.id,
+    });
 
     // If registration successful but email verification required
     if (!result.tokens) {
@@ -95,30 +147,83 @@ export async function registerAction(formData: FormData): Promise<ActionResult> 
 
 export async function loginAction(formData: FormData): Promise<ActionResult> {
   try {
+    // Get client IP and headers
+    const headersList = await headers();
+    const clientIP = RateLimiterService.getClientIP(headersList);
+
     // Parse and validate form data
     const rawData = {
       email: formData.get('email') as string,
       password: formData.get('password') as string,
+      recaptchaToken: formData.get('recaptchaToken') as string,
     };
 
     const validatedData = loginSchema.parse(rawData);
 
-    // Get device info and IP from headers (in a real app, you'd get these from request)
+    // 1. Check rate limiting
+    const rateLimitResult = await RateLimiterService.checkLoginRateLimit(clientIP, validatedData.email);
+    if (!rateLimitResult.success) {
+      await RateLimiterService.logSecurityEvent(clientIP, 'login_rate_limit_exceeded', {
+        email: validatedData.email,
+        limit: rateLimitResult.limit,
+        remaining: rateLimitResult.remaining,
+      });
+
+      return {
+        success: false,
+        message: rateLimitResult.blocked
+          ? rateLimitResult.blockReason!
+          : `Too many login attempts. Please try again in ${Math.ceil((rateLimitResult.reset - Date.now()) / 1000)} seconds.`,
+      };
+    }
+
+    // 2. Verify reCAPTCHA if enabled
+    if (RecaptchaService.isEnabled() && rawData.recaptchaToken) {
+      const recaptchaResult = await RecaptchaService.verifyToken(rawData.recaptchaToken, clientIP);
+      if (!recaptchaResult.success) {
+        await RateLimiterService.incrementFailedAttempts(clientIP);
+        await RateLimiterService.logSecurityEvent(clientIP, 'login_recaptcha_failed', {
+          email: validatedData.email,
+          error: recaptchaResult.error,
+        });
+
+        return {
+          success: false,
+          message: 'reCAPTCHA verification failed. Please try again.',
+        };
+      }
+    }
+
+    // 3. Attempt login
     const loginData: LoginData = {
-      ...validatedData,
-      deviceInfo: 'Web Browser', // You can enhance this
-      ipAddress: '127.0.0.1', // You'd get real IP from request
+      email: validatedData.email,
+      password: validatedData.password,
+      deviceInfo: 'Web Browser',
+      ipAddress: clientIP,
     };
 
-    // Authenticate user
     const result = await AuthService.login(loginData);
 
     if (!result.success || !result.tokens) {
+      // Increment failed attempts on login failure
+      await RateLimiterService.incrementFailedAttempts(clientIP);
+      await RateLimiterService.logSecurityEvent(clientIP, 'login_failed', {
+        email: validatedData.email,
+        reason: result.message,
+      });
+
       return {
         success: false,
         message: result.message,
       };
     }
+
+    // 4. Reset failed attempts on successful login
+    await RateLimiterService.resetFailedAttempts(clientIP);
+    await RateLimiterService.logSecurityEvent(clientIP, 'login_success', {
+      email: validatedData.email,
+      userId: result.user?.id,
+    });
 
     // Set auth cookies
     await setAuthCookies(result.tokens.accessToken, result.tokens.refreshToken);

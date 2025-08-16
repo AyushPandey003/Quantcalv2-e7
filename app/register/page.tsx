@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { registerAction } from '@/actions/auth';
 import { useRedirectIfAuth } from '@/hooks/use-auth';
+import { RecaptchaV3Component, useRecaptchaV3 } from '@/components/ui/recaptcha-v3';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -16,6 +17,10 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // reCAPTCHA v3 hook
+  const recaptcha = useRecaptchaV3('register');
 
   // Redirect if already authenticated
   const { loading } = useRedirectIfAuth('/dashboard');
@@ -33,8 +38,21 @@ export default function RegisterPage() {
     setSuccess(null);
     setFieldErrors({});
 
+    // Add reCAPTCHA token to form data if available
+    if (recaptcha.token) {
+      formData.append('recaptchaToken', recaptcha.token);
+    }
+
     startTransition(async () => {
-      const result = await registerAction(formData);
+      let result: any;
+      try {
+        result = await registerAction(formData);
+      } catch (e) {
+        console.error('registerAction threw error', e);
+        setError('Registration failed due to a server error.');
+        recaptcha.reset();
+        return;
+      }
 
       if (result.success) {
         if (result.data) {
@@ -50,6 +68,8 @@ export default function RegisterPage() {
         if (result.errors) {
           setFieldErrors(result.errors as Record<string, string[]>);
         }
+        // Reset reCAPTCHA on failure
+        recaptcha.reset();
       }
     });
   }
@@ -63,7 +83,7 @@ export default function RegisterPage() {
             Enter your details to create your account
           </CardDescription>
         </CardHeader>
-        <form action={handleSubmit}>
+        <form ref={formRef} action={handleSubmit}>
           <CardContent className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -157,6 +177,24 @@ export default function RegisterPage() {
               <p className="text-xs text-gray-500">
                 Password must be at least 8 characters long
               </p>
+            </div>
+
+            {/* reCAPTCHA v3 Component - Invisible */}
+            <div className="space-y-2">
+              <RecaptchaV3Component
+                siteKey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''}
+                action="register"
+                onChange={recaptcha.handleChange}
+                onError={recaptcha.handleError}
+                onExpired={recaptcha.handleExpired}
+                disabled={isPending}
+                autoExecute={true}
+                retryAttempts={3}
+                retryDelay={1000}
+              />
+              {recaptcha.error && (
+                <p className="text-sm text-red-500">{recaptcha.error}</p>
+              )}
             </div>
           </CardContent>
 

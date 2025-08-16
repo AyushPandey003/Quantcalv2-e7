@@ -49,7 +49,7 @@ export async function encrypt(payload: UserJWTPayload) {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || "15m")
+    .setExpirationTime(process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || "300m")
     .sign(key);
 }
 
@@ -117,7 +117,7 @@ export class JWTAuth {
       role,
     })
       .setProtectedHeader({ alg: 'HS256' })
-      .setExpirationTime(process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || '15m')
+      .setExpirationTime(process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || '30m')
       .sign(key);
 
     // Refresh token - long lived
@@ -191,7 +191,7 @@ export class JWTAuth {
         role: decoded.role,
       })
         .setProtectedHeader({ alg: 'HS256' })
-        .setExpirationTime(process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || '15m')
+        .setExpirationTime(process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || '30m')
         .sign(key);
 
       return newAccessToken;
