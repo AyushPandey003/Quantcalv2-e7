@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { JWTAuth } from '@/lib/auth/jwt';
+import { RateLimiterService } from '@/lib/security/rate-limiter';
 
 // Define public paths that don't require authentication
 const publicPaths = [
@@ -48,6 +49,43 @@ export async function middleware(request: NextRequest) {
     pathname.includes('.') // Static files
   ) {
     return NextResponse.next();
+  }
+
+  // Apply global API rate limiting (IP-based) for all API routes except those with specialized logic
+  if (pathname.startsWith('/api/')) {
+    try {
+      const specializedAuthPaths = ['/api/auth/login', '/api/auth/register'];
+      const clientIP = RateLimiterService.getClientIP(request.headers);
+
+      // Skip specialized auth paths (handled inside their own route handlers for email/IP combo limits)
+      if (!specializedAuthPaths.includes(pathname)) {
+        const apiRate = await RateLimiterService.checkAPIRateLimit(clientIP);
+        if (!apiRate.success) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: apiRate.blocked
+                ? apiRate.blockReason
+                : `Too many requests. Try again in ${Math.ceil((apiRate.reset - Date.now()) / 1000)} seconds.`,
+              code: 'RATE_LIMIT_EXCEEDED',
+              reset: apiRate.reset,
+            },
+            {
+              status: 429,
+              headers: {
+                'X-RateLimit-Limit': apiRate.limit.toString(),
+                'X-RateLimit-Remaining': apiRate.remaining.toString(),
+                'X-RateLimit-Reset': apiRate.reset.toString(),
+                'Retry-After': Math.ceil((apiRate.reset - Date.now()) / 1000).toString(),
+              },
+            }
+          );
+        }
+      }
+    } catch (e) {
+      console.error('Rate limit middleware error:', e);
+      // Fail-open to avoid blocking legitimate traffic in case of redis issues
+    }
   }
 
   // Check if path is public
@@ -122,7 +160,8 @@ export async function middleware(request: NextRequest) {
   if (isProtectedApiPath && payload) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-user-id', payload.sub); // Use 'sub' instead of 'userId'
-    requestHeaders.set('x-user-email', payload.email || '');
+  // Some payloads may not include email; safeguard access with cast
+  requestHeaders.set('x-user-email', ((payload as any)?.email) || '');
     requestHeaders.set('x-user-role', payload.role || 'user');
 
     return NextResponse.next({

@@ -39,6 +39,16 @@ const RATE_LIMITS = {
     window: '10 m', // 10 minutes
     max: 5, // 5 failures per 10 minutes
   },
+  // Price alert creations per user
+  PRICE_ALERT_CREATE: {
+    window: '1 m', // per minute burst control
+    max: 20,
+  },
+  // Trading account creations per user
+  TRADING_ACCOUNT_CREATE: {
+    window: '1 h', // per hour
+    max: 5,
+  },
 } as const;
 
 // Create rate limiters
@@ -78,6 +88,18 @@ const rateLimiters = {
     limiter: Ratelimit.slidingWindow(RATE_LIMITS.RECAPTCHA_FAILURES.max, RATE_LIMITS.RECAPTCHA_FAILURES.window),
     analytics: true,
     prefix: 'recaptcha_failures',
+  }),
+  priceAlertCreate: new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(RATE_LIMITS.PRICE_ALERT_CREATE.max, RATE_LIMITS.PRICE_ALERT_CREATE.window),
+    analytics: true,
+    prefix: 'price_alert_create',
+  }),
+  tradingAccountCreate: new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(RATE_LIMITS.TRADING_ACCOUNT_CREATE.max, RATE_LIMITS.TRADING_ACCOUNT_CREATE.window),
+    analytics: true,
+    prefix: 'trading_account_create',
   }),
 };
 
@@ -157,6 +179,34 @@ export class RateLimiterService {
       blockType: null,
       failedAttempts: failed,
       blockCount: blockCountNum,
+    };
+  }
+
+  /**
+   * Check rate limit for price alert creations per user
+   */
+  static async checkPriceAlertCreationRate(userId: string): Promise<RateLimitResult> {
+    const result = await rateLimiters.priceAlertCreate.limit(userId);
+    return {
+      success: result.success,
+      limit: result.limit,
+      remaining: result.remaining,
+      reset: result.reset,
+      blocked: false,
+    };
+  }
+
+  /**
+   * Check rate limit for trading account creations per user
+   */
+  static async checkTradingAccountCreationRate(userId: string): Promise<RateLimitResult> {
+    const result = await rateLimiters.tradingAccountCreate.limit(userId);
+    return {
+      success: result.success,
+      limit: result.limit,
+      remaining: result.remaining,
+      reset: result.reset,
+      blocked: false,
     };
   }
 
